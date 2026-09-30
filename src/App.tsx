@@ -54,6 +54,7 @@ import { CandidateProfileModal } from './components/CandidateProfileModal';
 import { PakistanWallOfFame } from './components/PakistanWallOfFame';
 import { MicroTasksBoard } from './components/MicroTasksBoard';
 import { RemoteCareerPathway } from './components/RemoteCareerPathway';
+import { AuthModal, AuthMode } from './components/AuthModal';
 
 export default function App() {
   // Navigation & Role state
@@ -77,6 +78,41 @@ export default function App() {
   const [appliedProjectIds, setAppliedProjectIds] = useState<Set<string>>(new Set(['project-fin-01']));
   const [selectedProjectForModal, setSelectedProjectForModal] = useState<InternshipProject | null>(null);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+
+  // Auth state (mock) — signed out by default, remembered per browser
+  const [isSignedIn, setIsSignedIn] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('worknest-signed-in') === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const [authMode, setAuthMode] = useState<AuthMode>('signin');
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+
+  const openAuthModal = (mode: AuthMode) => {
+    setAuthMode(mode);
+    setIsAuthModalOpen(true);
+  };
+
+  const handleAuthenticate = ({ name, email }: { name?: string; email: string }) => {
+    setCandidate(prev => ({ ...prev, email, ...(name ? { name } : {}) }));
+    setIsSignedIn(true);
+    setIsAuthModalOpen(false);
+    try {
+      localStorage.setItem('worknest-signed-in', 'true');
+    } catch {}
+    showToast(name ? `Welcome to WorkNest Ajao, ${name}!` : 'Signed in successfully.');
+  };
+
+  const handleSignOut = () => {
+    setIsSignedIn(false);
+    setIsProfileModalOpen(false);
+    try {
+      localStorage.removeItem('worknest-signed-in');
+    } catch {}
+    showToast('You have been signed out.');
+  };
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Filter State
@@ -437,6 +473,10 @@ export default function App() {
         currency={currency}
         onToggleCurrency={() => setCurrency(prev => prev === 'PKR' ? 'USD' : 'PKR')}
         alerts={mobileAlerts}
+        isSignedIn={isSignedIn}
+        onSignIn={() => openAuthModal('signin')}
+        onGetStarted={() => openAuthModal('signup')}
+        onSignOut={handleSignOut}
       />
 
       {/* Main Body */}
@@ -676,6 +716,15 @@ export default function App() {
           setIsProfileModalOpen(false);
           setActiveTab('verifier');
         }}
+      />
+
+      {/* Sign in / Sign up Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        mode={authMode}
+        setMode={setAuthMode}
+        onClose={() => setIsAuthModalOpen(false)}
+        onAuthenticate={handleAuthenticate}
       />
     </div>
   );

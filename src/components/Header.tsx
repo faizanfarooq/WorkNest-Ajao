@@ -13,7 +13,8 @@ import {
   Zap,
   Bell,
   Check,
-  DollarSign
+  DollarSign,
+  LogOut
 } from 'lucide-react';
 import { CandidateProfile, MobileAlert } from '../types';
 
@@ -39,6 +40,10 @@ interface HeaderProps {
   currency: 'PKR' | 'USD';
   onToggleCurrency: () => void;
   alerts: MobileAlert[];
+  isSignedIn: boolean;
+  onSignIn: () => void;
+  onGetStarted: () => void;
+  onSignOut: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -52,6 +57,10 @@ export const Header: React.FC<HeaderProps> = ({
   currency,
   onToggleCurrency,
   alerts,
+  isSignedIn,
+  onSignIn,
+  onGetStarted,
+  onSignOut,
 }) => {
   const [showAlertsMenu, setShowAlertsMenu] = useState<boolean>(false);
   const unreadAlertsCount = alerts.length;
@@ -291,6 +300,26 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             </div>
 
+            {!isSignedIn ? (
+              <div className="flex items-center gap-2 sm:gap-2.5">
+                <button
+                  id="sign-in-btn"
+                  onClick={onSignIn}
+                  className="hidden sm:block rounded-lg px-4 py-1.5 border border-slate-200 text-sm font-medium bg-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50 shadow-sm transition-all duration-200 cursor-pointer active:scale-95"
+                >
+                  Sign in
+                </button>
+                <button
+                  id="get-started-btn"
+                  type="button"
+                  onClick={onGetStarted}
+                  className="inline-flex items-center justify-center rounded-lg px-4 py-1.5 bg-slate-900 text-white text-sm font-medium whitespace-nowrap border border-transparent shadow-sm hover:opacity-90 transition-all duration-200 cursor-pointer active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50"
+                >
+                  Get started
+                </button>
+              </div>
+            ) : (
+            <div className="flex items-center gap-1">
             {/* Candidate Profile Pill */}
             <button
               id="open-profile-btn"
@@ -312,6 +341,17 @@ export const Header: React.FC<HeaderProps> = ({
                 </p>
               </div>
             </button>
+            <button
+              id="sign-out-btn"
+              onClick={onSignOut}
+              className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 cursor-pointer transition-colors"
+              title="Sign out"
+              aria-label="Sign out"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+            </div>
+            )}
           </div>
         </div>
 

@@ -311,3 +311,37 @@ export interface ReviewTestimonial {
   verifiedTechBadges: string[];
   date: string;
 }
+
+export interface StudentApplication {
+  id: string;
+  internshipId: string;
+  internshipTitle: string;
+  companyName: string;
+  companyLogo: string;
+  location: string;
+  stipendTotal: string;
+  appliedDate: string;
+  status: 'Applied' | 'Under Review' | 'Interview Scheduled' | 'Milestone Active' | 'Completed';
+  matchScore: number;
+  currentMilestone?: string;
+  escrowStatus: 'Pending' | 'Locked in Escrow' | 'Partially Released' | 'Completed';
+  githubPrUrl?: string;
+  founderFeedback?: string;
+}
+
+export interface CompanyDirectoryItem {
+  id: string;
+  name: string;
+  logo: string;
+  locationArea: string; // e.g. "Johar Town, Lahore (0.5 km from UMT)"
+  distanceFromUmt: string;
+  industry: string;
+  teamSize: string;
+  techStack: string[];
+  openInternshipsCount: number;
+  founderName: string;
+  founderRole: string;
+  description: string;
+  websiteUrl: string;
+  acceptsLowGpa: boolean;
+}

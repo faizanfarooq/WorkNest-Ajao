@@ -18,6 +18,7 @@ import {
 import { CandidateProfile, SkillAuditResult, TechSkill, VerificationBadge } from '../types';
 import { SAMPLE_PORTFOLIO_SUBMISSIONS } from '../data/mockData';
 import { auditPortfolioSkills } from '../services/geminiService';
+import { trackAiSkillAudit } from '../services/analytics';
 
 interface AiSkillVerifierProps {
   candidate: CandidateProfile;
@@ -84,6 +85,12 @@ export const AiSkillVerifier: React.FC<AiSkillVerifierProps> = ({
 
     setAuditResult(result);
     setIsAuditing(false);
+
+    // Track AI audit in Google Analytics
+    trackAiSkillAudit({
+      projectTitle,
+      score: result.candidateScore,
+    });
   };
 
   const handleSaveBadgeToProfile = () => {

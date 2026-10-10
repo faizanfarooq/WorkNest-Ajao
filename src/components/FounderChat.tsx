@@ -13,6 +13,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { ChatThread, ChatMessage, CandidateProfile } from '../types';
+import { trackFounderMessage } from '../services/analytics';
 
 interface FounderChatProps {
   threads: ChatThread[];
@@ -51,6 +52,9 @@ export const FounderChat: React.FC<FounderChatProps> = ({
     } : undefined;
 
     onSendMessage(activeThread.id, inputText.trim(), code);
+    if (activeThread?.founderName) {
+      trackFounderMessage(activeThread.founderName);
+    }
     setInputText('');
     setCodeSnippetText('');
     setShowCodeInput(false);

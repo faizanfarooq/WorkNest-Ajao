@@ -14,6 +14,7 @@ import {
   MessageSquare
 } from 'lucide-react';
 import { InternshipProject, Milestone } from '../types';
+import { trackMilestoneInteraction } from '../services/analytics';
 
 interface MilestoneTrackerProps {
   project: InternshipProject;
@@ -45,6 +46,10 @@ export const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({
       demoUrl,
       architectureNotes: notes,
       submittedAt: new Date().toISOString().split('T')[0]
+    });
+    trackMilestoneInteraction({
+      milestoneTitle: selectedMilestone.title,
+      actionType: 'submit',
     });
     setSubmitSuccess(true);
     setTimeout(() => setSubmitSuccess(false), 4000);

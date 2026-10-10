@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Briefcase, 
   Search, 
@@ -13,6 +13,11 @@ import {
   ShieldCheck,
   Bell
 } from 'lucide-react';
+import { 
+  trackTabNavigation, 
+  trackRoleSwitch, 
+  trackProjectApplication 
+} from './services/analytics';
 import { 
   CandidateProfile, 
   InternshipProject, 
@@ -41,6 +46,12 @@ import {
   MOBILE_ALERTS
 } from './data/mockData';
 import { Header, NavigationTab } from './components/Header';
+import { IndeedJobSearch } from './components/IndeedJobSearch';
+import { CompanyDirectory } from './components/CompanyDirectory';
+import { ResourcesHub } from './components/ResourcesHub';
+import { StudentDashboard } from './components/StudentDashboard';
+import { AuthModal } from './components/AuthModal';
+import { PostRoleModal } from './components/PostRoleModal';
 import { GraduateBanner } from './components/GraduateBanner';
 import { ProjectCard } from './components/ProjectCard';
 import { ProjectDetailModal } from './components/ProjectDetailModal';
@@ -54,13 +65,16 @@ import { CandidateProfileModal } from './components/CandidateProfileModal';
 import { PakistanWallOfFame } from './components/PakistanWallOfFame';
 import { MicroTasksBoard } from './components/MicroTasksBoard';
 import { RemoteCareerPathway } from './components/RemoteCareerPathway';
-import { AuthModal, AuthMode } from './components/AuthModal';
+import { BackendApiExplorer } from './components/BackendApiExplorer';
 
 export default function App() {
   // Navigation & Role state
-  const [activeTab, setActiveTab] = useState<NavigationTab>('projects');
+  const [activeTab, setActiveTab] = useState<NavigationTab>('internships');
   const [userRole, setUserRole] = useState<'candidate' | 'founder'>('candidate');
   const [currency, setCurrency] = useState<'PKR' | 'USD'>('PKR');
+  const [lowGpaShieldActive, setLowGpaShieldActive] = useState<boolean>(true);
+  const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
+  const [postRoleModalOpen, setPostRoleModalOpen] = useState<boolean>(false);
 
   // Core Data state
   const [candidate, setCandidate] = useState<CandidateProfile>(CURRENT_GRADUATE);
@@ -78,41 +92,6 @@ export default function App() {
   const [appliedProjectIds, setAppliedProjectIds] = useState<Set<string>>(new Set(['project-fin-01']));
   const [selectedProjectForModal, setSelectedProjectForModal] = useState<InternshipProject | null>(null);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
-
-  // Auth state (mock) — signed out by default, remembered per browser
-  const [isSignedIn, setIsSignedIn] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem('worknest-signed-in') === 'true';
-    } catch {
-      return false;
-    }
-  });
-  const [authMode, setAuthMode] = useState<AuthMode>('signin');
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-
-  const openAuthModal = (mode: AuthMode) => {
-    setAuthMode(mode);
-    setIsAuthModalOpen(true);
-  };
-
-  const handleAuthenticate = ({ name, email }: { name?: string; email: string }) => {
-    setCandidate(prev => ({ ...prev, email, ...(name ? { name } : {}) }));
-    setIsSignedIn(true);
-    setIsAuthModalOpen(false);
-    try {
-      localStorage.setItem('worknest-signed-in', 'true');
-    } catch {}
-    showToast(name ? `Welcome to WorkNest Ajao, ${name}!` : 'Signed in successfully.');
-  };
-
-  const handleSignOut = () => {
-    setIsSignedIn(false);
-    setIsProfileModalOpen(false);
-    try {
-      localStorage.removeItem('worknest-signed-in');
-    } catch {}
-    showToast('You have been signed out.');
-  };
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Filter State
@@ -141,6 +120,15 @@ export default function App() {
     return matchesSearch && matchesTrack && matchesPriority && matchesLocation;
   });
 
+  // Google Analytics Tracking on Tab Navigation & Role Switch
+  useEffect(() => {
+    trackTabNavigation(activeTab);
+  }, [activeTab]);
+
+  useEffect(() => {
+    trackRoleSwitch(userRole);
+  }, [userRole]);
+
   // Action: 1-Click Apply with Portfolio
   const handleQuickApply = (project: InternshipProject, customNote?: string) => {
     if (appliedProjectIds.has(project.id)) return;
@@ -148,6 +136,14 @@ export default function App() {
     setAppliedProjectIds(prev => new Set(prev).add(project.id));
     setSelectedProjectForModal(null);
     showToast(`Proof-of-Work Application submitted to ${project.startup.name}! Founder ${project.startup.founderName} notified.`);
+
+    // Track application submission in Google Analytics
+    trackProjectApplication({
+      projectId: project.id,
+      projectTitle: project.title,
+      startupName: project.startup.name,
+      stipendTotal: project.stipendTotal,
+    });
 
     // Automatically ensure chat thread exists
     const threadId = `thread-${project.startup.id.replace('startup-', '')}`;
@@ -461,240 +457,206 @@ export default function App() {
         </div>
       )}
 
-      {/* Main App Header */}
+      {/* Main App Header (YC-Inspired) */}
       <Header
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         userRole={userRole}
         setUserRole={setUserRole}
         candidate={candidate}
-        unreadChatCount={unreadChatCount}
-        onOpenProfile={() => setIsProfileModalOpen(true)}
         currency={currency}
-        onToggleCurrency={() => setCurrency(prev => prev === 'PKR' ? 'USD' : 'PKR')}
-        alerts={mobileAlerts}
-        isSignedIn={isSignedIn}
-        onSignIn={() => openAuthModal('signin')}
-        onGetStarted={() => openAuthModal('signup')}
-        onSignOut={handleSignOut}
+        onToggleCurrency={() => setCurrency((prev) => (prev === 'PKR' ? 'USD' : 'PKR'))}
+        lowGpaShieldActive={lowGpaShieldActive}
+        onToggleLowGpaShield={() => {
+          setLowGpaShieldActive((prev) => !prev);
+          showToast(
+            lowGpaShieldActive
+              ? 'Low-GPA Shield deactivated.'
+              : 'Low-GPA Shield activated: Minimum CGPA cutoffs bypassed via verified GitHub code.'
+          );
+        }}
+        onOpenAuthModal={() => setAuthModalOpen(true)}
+        onOpenPostRoleModal={() => setPostRoleModalOpen(true)}
+        onOpenProfileModal={() => setIsProfileModalOpen(true)}
+        unreadChatCount={unreadChatCount}
       />
 
       {/* Main Body */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {userRole === 'founder' ? (
-          /* Startup Founder View */
-          <FounderView
-            startup={STARTUPS[0]}
-            candidate={candidate}
+        {/* TAB 1: Indeed-Style 2-Pane Job Search Feed */}
+        {activeTab === 'internships' && (
+          <IndeedJobSearch
             projects={projects}
-            onApproveMilestone={(projId, msId) => handleFounderApproveMilestone(msId)}
-            onOpenChat={(startupId) => {
-              handleStartChat(startupId);
-              setUserRole('candidate'); // switch to chat
-            }}
-            onPostNewProject={handlePostNewProject}
+            candidate={candidate}
+            currency={currency}
+            lowGpaShieldActive={lowGpaShieldActive}
+            onQuickApply={(p, note) => handleQuickApply(p, note)}
+            appliedProjectIds={appliedProjectIds}
+            onOpenChatWithFounder={(sId) => handleStartChat(sId)}
+            onOpenCodeAuditor={() => setActiveTab('auditor')}
           />
-        ) : (
-          /* CS/IT Graduate View */
-          <>
-            {activeTab === 'projects' && (
-              <div className="space-y-6">
-                {/* Graduate Launchpad Banner */}
-                <GraduateBanner
-                  onExploreProjects={() => {
-                    const el = document.getElementById('project-filter-bar');
-                    el?.scrollIntoView({ behavior: 'smooth' });
-                  }}
-                  onLaunchSkillAudit={() => setActiveTab('verifier')}
-                  onViewWallOfFame={() => setActiveTab('wall_of_fame')}
-                />
+        )}
 
-                {/* Filter and Search Bar */}
-                <div id="project-filter-bar" className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs space-y-4">
-                  <div className="flex flex-col md:flex-row gap-3">
-                    {/* Search Input */}
-                    <div className="relative flex-1">
-                      <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-                      <input
-                        id="search-projects-input"
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Search by stack (Python, React, Django, Flutter, Docker) or startup..."
-                        className="w-full text-xs pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none"
-                      />
-                    </div>
+        {/* TAB 2: Remote USD Pathways */}
+        {activeTab === 'remote' && (
+          <RemoteCareerPathway
+            jobs={remoteJobs}
+            metrics={REMOTE_READINESS_METRICS}
+            candidate={candidate}
+            currency={currency}
+            onApplyJob={handleApplyRemoteJob}
+            onOpenAudit={() => setActiveTab('auditor')}
+          />
+        )}
 
-                    {/* Track Filter */}
-                    <select
-                      id="filter-track-select"
-                      value={selectedTrack}
-                      onChange={(e) => setSelectedTrack(e.target.value)}
-                      className="text-xs px-3 py-2.5 rounded-xl border border-slate-200 focus:border-emerald-500 outline-none bg-white font-semibold text-slate-700"
-                    >
-                      <option value="All">All Tracks (CS & IT)</option>
-                      <option value="CS Backend & Distributed Systems">CS Backend & Distributed Systems</option>
-                      <option value="Backend Engineering & Cloud">Backend Engineering & Cloud</option>
-                      <option value="Mobile App Engineering">Mobile App Engineering (Flutter)</option>
-                      <option value="Software Quality & Automation">Software Quality Assurance (SQA)</option>
-                      <option value="AI & Data Engineering">AI & Data Engineering</option>
-                      <option value="IoT & Embedded Cloud">IoT & Embedded Cloud</option>
-                    </select>
+        {/* TAB 3: Startups & Companies Directory */}
+        {activeTab === 'companies' && (
+          <CompanyDirectory
+            onSelectCompanyInternships={(compName) => {
+              setActiveTab('internships');
+              showToast(`Displaying internships for ${compName}`);
+            }}
+            onOpenChatWithFounder={(sId) => handleStartChat(sId)}
+          />
+        )}
 
-                    {/* Hub / Location Filter */}
-                    <select
-                      id="filter-location-select"
-                      value={selectedLocation}
-                      onChange={(e) => setSelectedLocation(e.target.value)}
-                      className="text-xs px-3 py-2.5 rounded-xl border border-slate-200 focus:border-emerald-500 outline-none bg-white font-semibold text-slate-700"
-                    >
-                      <option value="All">All Pakistani Tech Hubs</option>
-                      <option value="Lahore">Lahore (Gulberg, Johar Town, DHA, Arfa Tower)</option>
-                      <option value="Karachi">Karachi (Shahrah-e-Faisal, Clifton)</option>
-                      <option value="Islamabad">Islamabad (Blue Area, I-8)</option>
-                      <option value="Faisalabad">Faisalabad (AgriTech Hub)</option>
-                      <option value="Peshawar">Peshawar (University Town)</option>
-                      <option value="Remote PK">Remote Pakistan</option>
-                    </select>
-                  </div>
+        {/* TAB 4: AI Code Auditor */}
+        {activeTab === 'auditor' && (
+          <AiSkillVerifier
+            candidate={candidate}
+            onBadgeAwarded={handleBadgeAwarded}
+            onExploreMatchedProjects={() => setActiveTab('internships')}
+          />
+        )}
 
-                  {/* Quick toggle chips */}
-                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-100 text-xs">
-                    <div className="flex items-center space-x-2">
-                      <button
-                        onClick={() => setOnlyGraduatePriority(!onlyGraduatePriority)}
-                        className={`px-3 py-1 rounded-full text-xs font-semibold transition-all flex items-center space-x-1.5 cursor-pointer ${
-                          onlyGraduatePriority
-                            ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border border-transparent'
-                        }`}
-                      >
-                        <GraduationCap className="w-3.5 h-3.5 text-amber-700" />
-                        <span>Post-Grad Priority Launchpad Only</span>
-                      </button>
+        {/* TAB 5: Resources (Resume Builder, Interview Guides, IELTS) */}
+        {activeTab === 'resources' && (
+          <ResourcesHub
+            candidate={candidate}
+            onOpenCodeAuditor={() => setActiveTab('auditor')}
+          />
+        )}
 
-                      <span className="text-slate-400">|</span>
+        {/* TAB 6: Student & Employer Dashboards */}
+        {activeTab === 'dashboard' && (
+          userRole === 'candidate' ? (
+            <StudentDashboard
+              candidate={candidate}
+              currency={currency}
+              onOpenChat={(sId) => handleStartChat(sId)}
+              onOpenCodeAuditor={() => setActiveTab('auditor')}
+              onNavigateToResources={() => setActiveTab('resources')}
+              onNavigateToInternships={() => setActiveTab('internships')}
+            />
+          ) : (
+            <FounderView
+              startup={STARTUPS[0]}
+              candidate={candidate}
+              projects={projects}
+              onApproveMilestone={(projId, msId) => handleFounderApproveMilestone(msId)}
+              onOpenChat={(startupId) => handleStartChat(startupId)}
+              onPostNewProject={handlePostNewProject}
+            />
+          )
+        )}
 
-                      <span className="text-slate-500">
-                        Showing <strong>{filteredProjects.length}</strong> verified milestone projects
-                      </span>
-                    </div>
+        {/* TAB 7: Founder Chat */}
+        {activeTab === 'chat' && (
+          <FounderChat
+            threads={chatThreads}
+            messagesMap={messagesMap}
+            activeThreadId={activeThreadId}
+            onSelectThread={(id) => setActiveThreadId(id)}
+            onSendMessage={handleSendMessage}
+            onOpenScheduleModal={(sId, sName, fName) => setActiveTab('interviews')}
+            candidate={candidate}
+          />
+        )}
 
-                    <div className="text-[11px] text-emerald-700 font-semibold flex items-center space-x-1">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Zero GPA Requirements on 100% of projects</span>
-                    </div>
-                  </div>
-                </div>
+        {/* Additional Specialty Tabs */}
+        {activeTab === 'microtasks' && (
+          <MicroTasksBoard
+            tasks={microTasks}
+            currency={currency}
+            onClaimTask={handleClaimMicroTask}
+          />
+        )}
 
-                {/* Projects Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {filteredProjects.map((project) => (
-                    <ProjectCard
-                      key={project.id}
-                      project={project}
-                      candidate={candidate}
-                      onSelectProject={(p) => setSelectedProjectForModal(p)}
-                      onQuickApply={(p) => handleQuickApply(p)}
-                      onStartChat={(startupId) => handleStartChat(startupId)}
-                      hasApplied={appliedProjectIds.has(project.id)}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
+        {activeTab === 'milestones' && (
+          <MilestoneTracker
+            project={projects[0]}
+            onUpdateMilestone={handleUpdateMilestone}
+            onFounderApproveMilestone={handleFounderApproveMilestone}
+            onOpenChat={(startupId) => handleStartChat(startupId)}
+            onViewDocuments={() => setActiveTab('documents')}
+          />
+        )}
 
-            {activeTab === 'microtasks' && (
-              <MicroTasksBoard
-                tasks={microTasks}
-                currency={currency}
-                onClaimTask={handleClaimMicroTask}
-              />
-            )}
+        {activeTab === 'documents' && (
+          <DocumentPortal
+            documents={documents}
+            onSignDocument={handleSignDocument}
+            onUploadDocument={(newDocData) => {
+              const newDoc: DocumentPortalItem = {
+                ...newDocData,
+                id: `doc-${Date.now()}`,
+                uploadedDate: new Date().toISOString().split('T')[0],
+                hashDigest: `sha256:${Math.random().toString(16).substring(2, 12)}...`
+              };
+              setDocuments((prev) => [newDoc, ...prev]);
+              showToast(`Document "${newDoc.title}" securely uploaded.`);
+            }}
+          />
+        )}
 
-            {activeTab === 'remote' && (
-              <RemoteCareerPathway
-                jobs={remoteJobs}
-                metrics={REMOTE_READINESS_METRICS}
-                candidate={candidate}
-                currency={currency}
-                onApplyJob={handleApplyRemoteJob}
-                onOpenAudit={() => setActiveTab('verifier')}
-              />
-            )}
+        {activeTab === 'interviews' && (
+          <InterviewScheduler
+            interviews={interviews}
+            startups={STARTUPS}
+            onBookInterview={handleBookInterview}
+            onJoinMeeting={(url) => window.open(url, '_blank')}
+          />
+        )}
 
-            {activeTab === 'verifier' && (
-              <AiSkillVerifier
-                candidate={candidate}
-                onBadgeAwarded={handleBadgeAwarded}
-                onExploreMatchedProjects={() => setActiveTab('projects')}
-              />
-            )}
+        {activeTab === 'wall_of_fame' && (
+          <PakistanWallOfFame
+            testimonials={PAKISTAN_TESTIMONIALS}
+            onOpenProjectModal={(projectId) => {
+              const found = projects.find((p) => p.id === projectId);
+              if (found) {
+                setSelectedProjectForModal(found);
+              } else {
+                setSelectedProjectForModal(projects[0]);
+              }
+            }}
+          />
+        )}
 
-            {activeTab === 'milestones' && (
-              <MilestoneTracker
-                project={projects[0]}
-                onUpdateMilestone={handleUpdateMilestone}
-                onFounderApproveMilestone={handleFounderApproveMilestone}
-                onOpenChat={(startupId) => handleStartChat(startupId)}
-                onViewDocuments={() => setActiveTab('documents')}
-              />
-            )}
-
-            {activeTab === 'chat' && (
-              <FounderChat
-                threads={chatThreads}
-                messagesMap={messagesMap}
-                activeThreadId={activeThreadId}
-                onSelectThread={(id) => setActiveThreadId(id)}
-                onSendMessage={handleSendMessage}
-                onOpenScheduleModal={(sId, sName, fName) => setActiveTab('interviews')}
-                candidate={candidate}
-              />
-            )}
-
-            {activeTab === 'documents' && (
-              <DocumentPortal
-                documents={documents}
-                onSignDocument={handleSignDocument}
-                onUploadDocument={(newDocData) => {
-                  const newDoc: DocumentPortalItem = {
-                    ...newDocData,
-                    id: `doc-${Date.now()}`,
-                    uploadedDate: new Date().toISOString().split('T')[0],
-                    hashDigest: `sha256:${Math.random().toString(16).substring(2, 12)}...`
-                  };
-                  setDocuments(prev => [newDoc, ...prev]);
-                  showToast(`Document "${newDoc.title}" securely uploaded.`);
-                }}
-              />
-            )}
-
-            {activeTab === 'interviews' && (
-              <InterviewScheduler
-                interviews={interviews}
-                startups={STARTUPS}
-                onBookInterview={handleBookInterview}
-                onJoinMeeting={(url) => window.open(url, '_blank')}
-              />
-            )}
-
-            {activeTab === 'wall_of_fame' && (
-              <PakistanWallOfFame
-                testimonials={PAKISTAN_TESTIMONIALS}
-                onOpenProjectModal={(projectId) => {
-                  const found = projects.find(p => p.id === projectId);
-                  if (found) {
-                    setSelectedProjectForModal(found);
-                  } else {
-                    setSelectedProjectForModal(projects[0]);
-                  }
-                }}
-              />
-            )}
-          </>
+        {activeTab === 'api_explorer' && (
+          <BackendApiExplorer />
         )}
       </main>
+
+      {/* Auth Modal (Sign In / Register) */}
+      <AuthModal
+        isOpen={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        onSelectRole={(r) => {
+          setUserRole(r);
+          showToast(`Authenticated as ${r === 'candidate' ? 'Student' : 'Employer'}`);
+        }}
+        currentRole={userRole}
+      />
+
+      {/* Post Role Modal (Employers) */}
+      <PostRoleModal
+        isOpen={postRoleModalOpen}
+        onClose={() => setPostRoleModalOpen(false)}
+        onPostRole={(newRole) => {
+          handlePostNewProject(newRole);
+          showToast(`Internship "${newRole.title}" published to UMT feed!`);
+        }}
+      />
 
       {/* Project Detail Modal */}
       <ProjectDetailModal
@@ -714,17 +676,8 @@ export default function App() {
         onClose={() => setIsProfileModalOpen(false)}
         onRunAudit={() => {
           setIsProfileModalOpen(false);
-          setActiveTab('verifier');
+          setActiveTab('auditor');
         }}
-      />
-
-      {/* Sign in / Sign up Modal */}
-      <AuthModal
-        isOpen={isAuthModalOpen}
-        mode={authMode}
-        setMode={setAuthMode}
-        onClose={() => setIsAuthModalOpen(false)}
-        onAuthenticate={handleAuthenticate}
       />
     </div>
   );

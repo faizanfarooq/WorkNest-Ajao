@@ -1,33 +1,37 @@
 import React, { useState } from 'react';
 import { 
   Briefcase, 
-  Sparkles, 
-  CheckCircle2, 
-  MessageSquare, 
-  FileText, 
-  Calendar, 
-  UserCheck, 
-  ArrowRightLeft,
-  GraduationCap,
-  Globe2,
-  Zap,
-  Bell,
-  Check,
-  DollarSign,
-  LogOut
+  Globe2, 
+  Building2, 
+  Code2, 
+  BookOpen, 
+  ShieldCheck, 
+  ShieldAlert, 
+  DollarSign, 
+  LogIn, 
+  PlusCircle, 
+  User, 
+  Menu, 
+  X, 
+  LayoutDashboard,
+  MessageSquare
 } from 'lucide-react';
-import { CandidateProfile, MobileAlert } from '../types';
+import { CandidateProfile } from '../types';
 
 export type NavigationTab = 
-  | 'projects' 
-  | 'microtasks'
-  | 'remote' 
-  | 'verifier' 
-  | 'milestones' 
-  | 'chat' 
-  | 'documents' 
-  | 'interviews' 
-  | 'wall_of_fame';
+  | 'internships'     // "Find Internships" (Indeed-style 2-pane feed)
+  | 'remote'          // "Remote USD Pathways"
+  | 'companies'       // "Startups & Companies"
+  | 'auditor'         // "AI Code Auditor"
+  | 'resources'       // "Resources" (Resume Builder, Interview Guides, IELTS)
+  | 'dashboard'       // Student or Employer Dashboard
+  | 'chat'            // Direct Founder Chat
+  | 'microtasks'      // 3-Day Micro-Tasks
+  | 'milestones'      // Milestone Escrow Tracker
+  | 'documents'       // Document Portal
+  | 'interviews'      // Interview Scheduler
+  | 'wall_of_fame'    // Wall of Fame
+  | 'api_explorer';   // Backend REST API Explorer
 
 interface HeaderProps {
   activeTab: NavigationTab;
@@ -35,15 +39,14 @@ interface HeaderProps {
   userRole: 'candidate' | 'founder';
   setUserRole: (role: 'candidate' | 'founder') => void;
   candidate: CandidateProfile;
-  unreadChatCount: number;
-  onOpenProfile: () => void;
   currency: 'PKR' | 'USD';
   onToggleCurrency: () => void;
-  alerts: MobileAlert[];
-  isSignedIn: boolean;
-  onSignIn: () => void;
-  onGetStarted: () => void;
-  onSignOut: () => void;
+  lowGpaShieldActive: boolean;
+  onToggleLowGpaShield: () => void;
+  onOpenAuthModal: () => void;
+  onOpenPostRoleModal: () => void;
+  onOpenProfileModal: () => void;
+  unreadChatCount: number;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -52,377 +55,342 @@ export const Header: React.FC<HeaderProps> = ({
   userRole,
   setUserRole,
   candidate,
-  unreadChatCount,
-  onOpenProfile,
   currency,
   onToggleCurrency,
-  alerts,
-  isSignedIn,
-  onSignIn,
-  onGetStarted,
-  onSignOut,
+  lowGpaShieldActive,
+  onToggleLowGpaShield,
+  onOpenAuthModal,
+  onOpenPostRoleModal,
+  onOpenProfileModal,
+  unreadChatCount,
 }) => {
-  const [showAlertsMenu, setShowAlertsMenu] = useState<boolean>(false);
-  const unreadAlertsCount = alerts.length;
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200">
+    <header className="sticky top-0 z-40 bg-white border-b border-zinc-200/90 shadow-2xs font-sans">
+      {/* Main Navigation Bar */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* Logo & Identity */}
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-600 to-slate-950 text-white flex items-center justify-center font-bold text-xl shadow-sm border border-emerald-500/30">
-              <span className="text-emerald-300 font-mono">W</span>N
-            </div>
-            <div>
-              <div className="flex items-center space-x-2">
-                <span className="text-xl font-extrabold tracking-tight text-slate-900 font-sans">
-                  WorkNest <span className="text-emerald-600">Ajao</span>
-                </span>
-                <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 uppercase tracking-wide">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse"></span>
-                  Pakistan Tech
-                </span>
+          {/* Brand Logo & Tagline */}
+          <div className="flex items-center space-x-6">
+            <button 
+              onClick={() => setActiveTab('internships')}
+              className="flex items-center space-x-2.5 cursor-pointer text-left focus:outline-none"
+            >
+              <div className="w-8 h-8 rounded-lg bg-[#09090B] text-emerald-400 flex items-center justify-center font-bold text-base shadow-xs tracking-tighter font-mono border border-emerald-500/30">
+                W
               </div>
-              <p className="text-[11px] text-slate-500 hidden md:block">
-                No GPA Required • Paid Pakistani Startups & US Remote • Lahore • Karachi • Islamabad
-              </p>
-            </div>
+              <div>
+                <div className="flex items-center space-x-1.5 leading-none">
+                  <span className="font-extrabold text-[#09090B] text-lg tracking-tight">WorkNest</span>
+                </div>
+                <div className="text-[10px] text-zinc-500 font-mono mt-0.5 flex items-center space-x-1">
+                  <span>UMT Edition</span>
+                  <span>·</span>
+                  <span className="text-emerald-600 font-semibold">Johar Town Hub</span>
+                </div>
+              </div>
+            </button>
+
+            {/* Left Menu Links (Clean Text Navigation) */}
+            <nav className="hidden lg:flex items-center space-x-1">
+              <button
+                id="nav-internships-btn"
+                onClick={() => setActiveTab('internships')}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors flex items-center space-x-1.5 cursor-pointer ${
+                  activeTab === 'internships'
+                    ? 'text-zinc-950 bg-zinc-100 font-bold border-b-2 border-emerald-500'
+                    : 'text-zinc-600 hover:text-zinc-950 hover:bg-zinc-50'
+                }`}
+              >
+                <Briefcase className="w-3.5 h-3.5" />
+                <span>Find Internships</span>
+              </button>
+
+              <button
+                id="nav-remote-btn"
+                onClick={() => setActiveTab('remote')}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors flex items-center space-x-1.5 cursor-pointer ${
+                  activeTab === 'remote'
+                    ? 'text-zinc-950 bg-zinc-100 font-bold border-b-2 border-emerald-500'
+                    : 'text-zinc-600 hover:text-zinc-950 hover:bg-zinc-50'
+                }`}
+              >
+                <Globe2 className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Remote USD Pathways</span>
+              </button>
+
+              <button
+                id="nav-companies-btn"
+                onClick={() => setActiveTab('companies')}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors flex items-center space-x-1.5 cursor-pointer ${
+                  activeTab === 'companies'
+                    ? 'text-zinc-950 bg-zinc-100 font-bold border-b-2 border-emerald-500'
+                    : 'text-zinc-600 hover:text-zinc-950 hover:bg-zinc-50'
+                }`}
+              >
+                <Building2 className="w-3.5 h-3.5" />
+                <span>Startups & Companies</span>
+              </button>
+
+              <button
+                id="nav-auditor-btn"
+                onClick={() => setActiveTab('auditor')}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors flex items-center space-x-1.5 cursor-pointer ${
+                  activeTab === 'auditor'
+                    ? 'text-zinc-950 bg-zinc-100 font-bold border-b-2 border-emerald-500'
+                    : 'text-zinc-600 hover:text-zinc-950 hover:bg-zinc-50'
+                }`}
+              >
+                <Code2 className="w-3.5 h-3.5 text-emerald-600" />
+                <span>AI Code Auditor</span>
+              </button>
+
+              <button
+                id="nav-resources-btn"
+                onClick={() => setActiveTab('resources')}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors flex items-center space-x-1.5 cursor-pointer ${
+                  activeTab === 'resources'
+                    ? 'text-zinc-950 bg-zinc-100 font-bold border-b-2 border-emerald-500'
+                    : 'text-zinc-600 hover:text-zinc-950 hover:bg-zinc-50'
+                }`}
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>Resources</span>
+              </button>
+
+              <button
+                id="nav-dashboard-btn"
+                onClick={() => setActiveTab('dashboard')}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors flex items-center space-x-1.5 cursor-pointer ${
+                  activeTab === 'dashboard'
+                    ? 'text-zinc-950 bg-zinc-100 font-bold border-b-2 border-emerald-500'
+                    : 'text-zinc-600 hover:text-zinc-950 hover:bg-zinc-50'
+                }`}
+              >
+                <LayoutDashboard className="w-3.5 h-3.5" />
+                <span>{userRole === 'candidate' ? 'Student Hub' : 'Employer Pipeline'}</span>
+              </button>
+
+              <button
+                id="nav-chat-btn"
+                onClick={() => setActiveTab('chat')}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors flex items-center space-x-1.5 cursor-pointer relative ${
+                  activeTab === 'chat'
+                    ? 'text-zinc-950 bg-zinc-100 font-bold border-b-2 border-emerald-500'
+                    : 'text-zinc-600 hover:text-zinc-950 hover:bg-zinc-50'
+                }`}
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span>Founder Chat</span>
+                {unreadChatCount > 0 && (
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                )}
+              </button>
+            </nav>
           </div>
 
-          {/* Navigation Links */}
-          <nav className="hidden xl:flex items-center space-x-1">
+          {/* Right Action Controls */}
+          <div className="hidden md:flex items-center space-x-3">
+            {/* Low-GPA Shield Toggle */}
             <button
-              id="nav-projects-btn"
-              onClick={() => setActiveTab('projects')}
-              className={`px-3 py-2 rounded-lg text-xs font-semibold transition-colors flex items-center space-x-1.5 cursor-pointer ${
-                activeTab === 'projects'
-                  ? 'bg-slate-900 text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              id="low-gpa-shield-toggle-btn"
+              onClick={onToggleLowGpaShield}
+              title="Hides minimum academic CGPA filters and evaluates proof-of-work codebases"
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center space-x-1.5 transition-all cursor-pointer border ${
+                lowGpaShieldActive
+                  ? 'bg-emerald-50 border-emerald-300 text-emerald-900 shadow-2xs'
+                  : 'bg-zinc-50 border-zinc-200 text-zinc-600 hover:bg-zinc-100'
               }`}
             >
-              <Briefcase className="w-4 h-4" />
-              <span>Paid Internships</span>
-            </button>
-
-            <button
-              id="nav-microtasks-btn"
-              onClick={() => setActiveTab('microtasks')}
-              className={`px-3 py-2 rounded-lg text-xs font-semibold transition-colors flex items-center space-x-1.5 cursor-pointer ${
-                activeTab === 'microtasks'
-                  ? 'bg-slate-900 text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-              }`}
-            >
-              <Zap className="w-4 h-4 text-amber-500" />
-              <span>3-Day Micro-Tasks</span>
-            </button>
-
-            <button
-              id="nav-remote-btn"
-              onClick={() => setActiveTab('remote')}
-              className={`px-3 py-2 rounded-lg text-xs font-semibold transition-colors flex items-center space-x-1.5 cursor-pointer ${
-                activeTab === 'remote'
-                  ? 'bg-emerald-700 text-white shadow-sm'
-                  : 'text-emerald-700 font-bold hover:text-emerald-800 hover:bg-emerald-50'
-              }`}
-            >
-              <Globe2 className="w-4 h-4 text-emerald-500" />
-              <span>Global Remote</span>
-              <span className="px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-900 text-[9px] font-extrabold">
-                USD
+              {lowGpaShieldActive ? (
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              ) : (
+                <ShieldAlert className="w-4 h-4 text-zinc-400" />
+              )}
+              <span className="font-bold">Low-GPA Shield:</span>
+              <span className={lowGpaShieldActive ? 'text-emerald-700 font-extrabold' : 'text-zinc-500'}>
+                {lowGpaShieldActive ? 'ACTIVE' : 'OFF'}
               </span>
             </button>
 
+            {/* Currency Switcher (PKR / USD) */}
             <button
-              id="nav-verifier-btn"
-              onClick={() => setActiveTab('verifier')}
-              className={`px-3 py-2 rounded-lg text-xs font-semibold transition-colors flex items-center space-x-1.5 cursor-pointer ${
-                activeTab === 'verifier'
-                  ? 'bg-slate-900 text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-              }`}
-            >
-              <Sparkles className="w-4 h-4 text-indigo-400" />
-              <span>AI Skill Verifier</span>
-            </button>
-
-            <button
-              id="nav-wall-btn"
-              onClick={() => setActiveTab('wall_of_fame')}
-              className={`px-3 py-2 rounded-lg text-xs font-semibold transition-colors flex items-center space-x-1.5 cursor-pointer ${
-                activeTab === 'wall_of_fame'
-                  ? 'bg-slate-900 text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-              }`}
-            >
-              <GraduationCap className="w-4 h-4 text-emerald-500" />
-              <span>Wall of Fame</span>
-            </button>
-
-            <button
-              id="nav-chat-btn"
-              onClick={() => setActiveTab('chat')}
-              className={`relative px-3 py-2 rounded-lg text-xs font-semibold transition-colors flex items-center space-x-1.5 cursor-pointer ${
-                activeTab === 'chat'
-                  ? 'bg-slate-900 text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-              }`}
-            >
-              <MessageSquare className="w-4 h-4" />
-              <span>Founder Chat</span>
-              {unreadChatCount > 0 && (
-                <span className="w-4 h-4 bg-emerald-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                  {unreadChatCount}
-                </span>
-              )}
-            </button>
-
-            <button
-              id="nav-documents-btn"
-              onClick={() => setActiveTab('documents')}
-              className={`px-3 py-2 rounded-lg text-xs font-semibold transition-colors flex items-center space-x-1.5 cursor-pointer ${
-                activeTab === 'documents'
-                  ? 'bg-slate-900 text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-              }`}
-            >
-              <FileText className="w-4 h-4" />
-              <span>Document Vault</span>
-            </button>
-
-            <button
-              id="nav-interviews-btn"
-              onClick={() => setActiveTab('interviews')}
-              className={`px-3 py-2 rounded-lg text-xs font-semibold transition-colors flex items-center space-x-1.5 cursor-pointer ${
-                activeTab === 'interviews'
-                  ? 'bg-slate-900 text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-              }`}
-            >
-              <Calendar className="w-4 h-4" />
-              <span>Interviews</span>
-            </button>
-          </nav>
-
-          {/* Right Action: Currency Switcher, Mobile Alerts & Profile */}
-          <div className="flex items-center space-x-2 sm:space-x-2.5">
-            {/* Currency Toggle */}
-            <button
+              id="currency-switcher-btn"
               onClick={onToggleCurrency}
-              className="px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-xs font-bold text-slate-800 flex items-center space-x-1 cursor-pointer transition-all"
-              title="Toggle PKR / USD display"
+              title="Switch currency display between Pakistani Rupee (PKR) and US Dollar (USD)"
+              className="px-2.5 py-1.5 rounded-md text-xs font-mono font-bold bg-zinc-100 hover:bg-zinc-200 text-zinc-700 border border-zinc-200 flex items-center space-x-1 cursor-pointer transition-colors"
             >
-              <span className={currency === 'PKR' ? 'text-emerald-700 font-extrabold' : 'text-slate-400'}>PKR</span>
-              <span className="text-slate-300">/</span>
-              <span className={currency === 'USD' ? 'text-emerald-700 font-extrabold' : 'text-slate-400'}>USD</span>
+              <DollarSign className="w-3 h-3 text-emerald-600" />
+              <span>{currency}</span>
+              <span className="text-[10px] text-zinc-400 font-sans">
+                ({currency === 'PKR' ? '₨' : '$'})
+              </span>
             </button>
 
-            {/* Mobile Alerts Bell (Jazz/Zong/WhatsApp) */}
+            {/* Post a Role / Employer Button */}
+            {userRole === 'founder' ? (
+              <button
+                id="post-role-header-btn"
+                onClick={onOpenPostRoleModal}
+                className="px-3.5 py-1.5 rounded-md text-xs font-bold bg-[#09090B] hover:bg-zinc-800 text-white transition-colors flex items-center space-x-1.5 cursor-pointer shadow-xs border border-zinc-800"
+              >
+                <PlusCircle className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Post a Role</span>
+              </button>
+            ) : (
+              <button
+                id="employer-switch-btn"
+                onClick={() => setUserRole('founder')}
+                className="px-3 py-1.5 rounded-md text-xs font-semibold text-zinc-700 hover:text-zinc-900 hover:bg-zinc-100 transition-colors cursor-pointer border border-zinc-200"
+              >
+                Employers / Post Role
+              </button>
+            )}
+
+            {/* User Profile / Auth Button */}
             <div className="relative">
               <button
-                onClick={() => setShowAlertsMenu(!showAlertsMenu)}
-                className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 relative cursor-pointer"
-                title="Cellular & WhatsApp Alerts (Jazz, Zong, WhatsApp)"
+                id="user-profile-menu-btn"
+                onClick={() => setRoleDropdownOpen(!roleDropdownOpen)}
+                className="flex items-center space-x-2 p-1 pl-2 pr-2.5 rounded-md border border-zinc-200 hover:border-zinc-300 bg-white transition-colors cursor-pointer"
               >
-                <Bell className="w-4 h-4" />
-                {unreadAlertsCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-600 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-                    {unreadAlertsCount}
-                  </span>
-                )}
+                <img
+                  src={candidate.avatar}
+                  alt={candidate.name}
+                  className="w-6 h-6 rounded-full object-cover border border-zinc-300"
+                />
+                <div className="text-left leading-none hidden xl:block">
+                  <div className="text-xs font-bold text-zinc-900 truncate max-w-[110px]">
+                    {userRole === 'candidate' ? 'Faizan Farooq' : 'Tariq Masood'}
+                  </div>
+                  <div className="text-[10px] text-zinc-500 font-mono mt-0.5">
+                    {userRole === 'candidate' ? 'UMT CS \'26' : 'FinFlow CTO'}
+                  </div>
+                </div>
               </button>
 
-              {showAlertsMenu && (
-                <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-xl border border-slate-200 p-4 z-50 animate-fade-in space-y-3">
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                    <span className="font-extrabold text-xs text-slate-900 flex items-center space-x-1.5">
-                      <span>Pakistan Cellular & WhatsApp Alerts</span>
-                    </span>
-                    <span className="text-[10px] bg-emerald-50 text-emerald-800 font-bold px-2 py-0.5 rounded-full">
-                      Live Gateways
-                    </span>
-                  </div>
-
-                  <div className="max-h-72 overflow-y-auto space-y-2.5">
-                    {alerts.map((al) => (
-                      <div key={al.id} className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1">
-                        <div className="flex items-center justify-between text-[10px]">
-                          <span className="font-bold text-slate-700 px-1.5 py-0.5 rounded bg-white border border-slate-200">
-                            {al.telco} • {al.sender}
-                          </span>
-                          <span className="text-slate-400">{al.timestamp}</span>
-                        </div>
-                        <p className="text-[11px] text-slate-800 leading-snug">
-                          {al.message}
-                        </p>
-                      </div>
-                    ))}
+              {/* Role Dropdown */}
+              {roleDropdownOpen && (
+                <div className="absolute right-0 mt-2 w-52 bg-white rounded-lg shadow-lg border border-zinc-200 py-1.5 z-50 text-xs">
+                  <div className="px-3 py-2 border-b border-zinc-100">
+                    <p className="font-bold text-zinc-900">{candidate.name}</p>
+                    <p className="text-[11px] text-zinc-500 font-mono">UMT Lahore Campus</p>
                   </div>
 
                   <button
-                    onClick={() => setShowAlertsMenu(false)}
-                    className="w-full py-1.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-colors cursor-pointer"
+                    onClick={() => {
+                      onOpenProfileModal();
+                      setRoleDropdownOpen(false);
+                    }}
+                    className="w-full text-left px-3 py-2 text-zinc-700 hover:bg-zinc-50 flex items-center space-x-2 cursor-pointer"
                   >
-                    Close Alerts
+                    <User className="w-3.5 h-3.5 text-zinc-500" />
+                    <span>View Student Profile</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      onOpenAuthModal();
+                      setRoleDropdownOpen(false);
+                    }}
+                    className="w-full text-left px-3 py-2 text-zinc-700 hover:bg-zinc-50 flex items-center space-x-2 cursor-pointer border-t border-zinc-100"
+                  >
+                    <LogIn className="w-3.5 h-3.5 text-zinc-500" />
+                    <span>Sign In / Switch Account</span>
                   </button>
                 </div>
               )}
             </div>
+          </div>
 
-            {/* View Switcher Toggle */}
-            <div className="hidden lg:flex bg-slate-100 p-1 rounded-xl items-center border border-slate-200">
-              <button
-                id="toggle-candidate-role-btn"
-                onClick={() => setUserRole('candidate')}
-                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all flex items-center space-x-1 cursor-pointer ${
-                  userRole === 'candidate'
-                    ? 'bg-white text-slate-900 shadow-xs border border-slate-200'
-                    : 'text-slate-500 hover:text-slate-800'
-                }`}
-                title="View platform as CS/IT Graduate"
-              >
-                <GraduationCap className="w-3.5 h-3.5 text-emerald-600" />
-                <span>CS Graduate</span>
-              </button>
-              <button
-                id="toggle-founder-role-btn"
-                onClick={() => setUserRole('founder')}
-                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all flex items-center space-x-1 cursor-pointer ${
-                  userRole === 'founder'
-                    ? 'bg-white text-slate-900 shadow-xs border border-slate-200'
-                    : 'text-slate-500 hover:text-slate-800'
-                }`}
-                title="View platform as Startup Founder"
-              >
-                <Briefcase className="w-3.5 h-3.5 text-indigo-600" />
-                <span>Pakistani Founder</span>
-              </button>
-            </div>
+          {/* Mobile Menu Button */}
+          <div className="flex items-center space-x-2 lg:hidden">
+            <button
+              onClick={onToggleLowGpaShield}
+              className={`p-1.5 rounded-md border text-xs ${
+                lowGpaShieldActive ? 'bg-emerald-100 border-emerald-300 text-emerald-900' : 'bg-zinc-100 border-zinc-200'
+              }`}
+            >
+              <ShieldCheck className="w-4 h-4 text-emerald-700" />
+            </button>
 
-            {!isSignedIn ? (
-              <div className="flex items-center gap-2 sm:gap-2.5">
-                <button
-                  id="sign-in-btn"
-                  onClick={onSignIn}
-                  className="hidden sm:block rounded-lg px-4 py-1.5 border border-slate-200 text-sm font-medium bg-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50 shadow-sm transition-all duration-200 cursor-pointer active:scale-95"
-                >
-                  Sign in
-                </button>
-                <button
-                  id="get-started-btn"
-                  type="button"
-                  onClick={onGetStarted}
-                  className="inline-flex items-center justify-center rounded-lg px-4 py-1.5 bg-slate-900 text-white text-sm font-medium whitespace-nowrap border border-transparent shadow-sm hover:opacity-90 transition-all duration-200 cursor-pointer active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50"
-                >
-                  Get started
-                </button>
-              </div>
-            ) : (
-            <div className="flex items-center gap-1">
-            {/* Candidate Profile Pill */}
             <button
-              id="open-profile-btn"
-              onClick={onOpenProfile}
-              className="flex items-center space-x-2 pl-2 pr-3 py-1 rounded-full border border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 transition-all text-left cursor-pointer"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="p-2 rounded-md text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 cursor-pointer"
             >
-              <img
-                src={candidate.avatar}
-                alt={candidate.name}
-                className="w-7 h-7 rounded-full object-cover ring-1 ring-emerald-400"
-              />
-              <div className="hidden sm:block">
-                <div className="flex items-center space-x-1">
-                  <span className="text-xs font-bold text-slate-900">{candidate.name}</span>
-                  <UserCheck className="w-3 h-3 text-emerald-500" />
-                </div>
-                <p className="text-[10px] text-slate-500 leading-none">
-                  FAST '25 • {candidate.portfolioReliabilityScore}% Score
-                </p>
-              </div>
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
-            <button
-              id="sign-out-btn"
-              onClick={onSignOut}
-              className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 cursor-pointer transition-colors"
-              title="Sign out"
-              aria-label="Sign out"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
-            </div>
-            )}
           </div>
         </div>
-
-        {/* Mobile Navigation Sub-bar */}
-        <div className="xl:hidden flex items-center space-x-2 py-2 overflow-x-auto border-t border-slate-100 no-scrollbar">
-          <button
-            onClick={() => setActiveTab('projects')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap cursor-pointer ${
-              activeTab === 'projects' ? 'bg-slate-900 text-white' : 'text-slate-600 bg-slate-100'
-            }`}
-          >
-            Paid Internships
-          </button>
-          <button
-            onClick={() => setActiveTab('microtasks')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap cursor-pointer ${
-              activeTab === 'microtasks' ? 'bg-slate-900 text-white' : 'text-slate-600 bg-slate-100'
-            }`}
-          >
-            ⚡ 3-Day Micro-Tasks
-          </button>
-          <button
-            onClick={() => setActiveTab('remote')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer ${
-              activeTab === 'remote' ? 'bg-emerald-700 text-white' : 'text-emerald-700 bg-emerald-50'
-            }`}
-          >
-            🌐 Global Remote (USD)
-          </button>
-          <button
-            onClick={() => setActiveTab('verifier')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap cursor-pointer ${
-              activeTab === 'verifier' ? 'bg-slate-900 text-white' : 'text-slate-600 bg-slate-100'
-            }`}
-          >
-            AI Verifier
-          </button>
-          <button
-            onClick={() => setActiveTab('wall_of_fame')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap cursor-pointer ${
-              activeTab === 'wall_of_fame' ? 'bg-slate-900 text-white' : 'text-slate-600 bg-slate-100'
-            }`}
-          >
-            Wall of Fame
-          </button>
-          <button
-            onClick={() => setActiveTab('chat')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap cursor-pointer ${
-              activeTab === 'chat' ? 'bg-slate-900 text-white' : 'text-slate-600 bg-slate-100'
-            }`}
-          >
-            Chat {unreadChatCount > 0 && `(${unreadChatCount})`}
-          </button>
-          <button
-            onClick={() => setActiveTab('documents')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap cursor-pointer ${
-              activeTab === 'documents' ? 'bg-slate-900 text-white' : 'text-slate-600 bg-slate-100'
-            }`}
-          >
-            Document Vault
-          </button>
-          <button
-            onClick={() => setActiveTab('interviews')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap cursor-pointer ${
-              activeTab === 'interviews' ? 'bg-slate-900 text-white' : 'text-slate-600 bg-slate-100'
-            }`}
-          >
-            Interviews
-          </button>
-        </div>
       </div>
+
+      {/* Mobile Drawer */}
+      {mobileMenuOpen && (
+        <div className="lg:hidden border-t border-zinc-200 bg-white px-4 pt-3 pb-6 space-y-2">
+          <button
+            onClick={() => { setActiveTab('internships'); setMobileMenuOpen(false); }}
+            className="w-full text-left px-3 py-2 rounded text-xs font-bold text-zinc-900 hover:bg-zinc-100"
+          >
+            Find Internships (Indeed Feed)
+          </button>
+          <button
+            onClick={() => { setActiveTab('remote'); setMobileMenuOpen(false); }}
+            className="w-full text-left px-3 py-2 rounded text-xs font-bold text-emerald-700 hover:bg-emerald-50"
+          >
+            Remote USD Pathways
+          </button>
+          <button
+            onClick={() => { setActiveTab('companies'); setMobileMenuOpen(false); }}
+            className="w-full text-left px-3 py-2 rounded text-xs font-bold text-zinc-900 hover:bg-zinc-100"
+          >
+            Startups & Companies (Johar Town / Gulberg)
+          </button>
+          <button
+            onClick={() => { setActiveTab('auditor'); setMobileMenuOpen(false); }}
+            className="w-full text-left px-3 py-2 rounded text-xs font-bold text-emerald-700 hover:bg-emerald-50"
+          >
+            AI Code Auditor (Gemini AST)
+          </button>
+          <button
+            onClick={() => { setActiveTab('resources'); setMobileMenuOpen(false); }}
+            className="w-full text-left px-3 py-2 rounded text-xs font-bold text-zinc-900 hover:bg-zinc-100"
+          >
+            Resources (Resume Builder & Guides)
+          </button>
+          <button
+            onClick={() => { setActiveTab('dashboard'); setMobileMenuOpen(false); }}
+            className="w-full text-left px-3 py-2 rounded text-xs font-bold text-zinc-900 hover:bg-zinc-100"
+          >
+            {userRole === 'candidate' ? 'Student Applications Dashboard' : 'Employer Pipeline'}
+          </button>
+          <button
+            onClick={() => { setActiveTab('chat'); setMobileMenuOpen(false); }}
+            className="w-full text-left px-3 py-2 rounded text-xs font-bold text-zinc-900 hover:bg-zinc-100"
+          >
+            Direct Founder Chat
+          </button>
+
+          <div className="pt-3 border-t border-zinc-100 flex items-center justify-between">
+            <button
+              onClick={onToggleCurrency}
+              className="text-xs font-mono font-bold px-3 py-1.5 bg-zinc-100 rounded border border-zinc-200"
+            >
+              Currency: {currency}
+            </button>
+            <button
+              onClick={() => {
+                setUserRole(userRole === 'candidate' ? 'founder' : 'candidate');
+                setMobileMenuOpen(false);
+              }}
+              className="text-xs font-bold px-3 py-1.5 bg-[#09090B] text-white rounded"
+            >
+              Role: {userRole === 'candidate' ? 'Student' : 'Employer'}
+            </button>
+          </div>
+        </div>
+      )}
     </header>
   );
 };

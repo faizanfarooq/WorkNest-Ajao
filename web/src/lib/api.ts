@@ -8,6 +8,11 @@ export class ApiError extends Error {
   }
 }
 
+/** True in the GitHub Pages build, where an in-browser backend stands in for the API. */
+export const IS_DEMO = import.meta.env.VITE_DEMO === 'true';
+let demoModule: Promise<typeof import('../demo/server')> | undefined;
+export const demoServer = () => (demoModule ??= import('../demo/server'));
+
 // The access token lives only in memory; the refresh token is an httpOnly cookie the browser sends for us.
 let accessToken: string | null = null;
 let refreshing: Promise<any> | null = null;
@@ -22,6 +27,7 @@ export const setSessionLostHandler = (fn: () => void) => {
 
 /** One shared refresh at a time, so parallel 401s don't race and burn the single-use cookie. */
 export function refreshSession() {
+  if (IS_DEMO) return demoServer().then((d) => d.currentSession());
   refreshing ??= fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' })
     .then(async (res) => {
       if (!res.ok) return null;
@@ -40,6 +46,14 @@ type Options = Omit<RequestInit, 'body'> & { body?: unknown; query?: Record<stri
 
 export async function api<T = any>(path: string, opts: Options = {}, retry = true): Promise<T> {
   const { body, query, headers, ...rest } = opts;
+  if (IS_DEMO) {
+    try {
+      return (await (await demoServer()).handle(rest.method ?? 'GET', path, query, body)) as T;
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401 && !path.startsWith('/auth/')) onSessionLost();
+      throw err;
+    }
+  }
   let url = `/api${path}`;
   if (query) {
     const qs = new URLSearchParams();
@@ -74,6 +88,18 @@ export async function api<T = any>(path: string, opts: Options = {}, retry = tru
 /** Fetches a protected file with the bearer token and opens it in a new tab. */
 export async function openProtectedFile(path: string) {
   const tab = window.open('', '_blank');
+  if (IS_DEMO) {
+    try {
+      const blob = await (await demoServer()).getResume(path.split('/').pop()!);
+      const url = URL.createObjectURL(blob);
+      if (tab) tab.location.href = url;
+      else window.location.href = url;
+    } catch (err) {
+      tab?.close();
+      throw err;
+    }
+    return;
+  }
   const load = () => fetch(`/api${path}`, { headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {} });
   let res = await load();
   if (res.status === 401 && (await refreshSession())) res = await load();

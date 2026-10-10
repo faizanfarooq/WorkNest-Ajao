@@ -1,20 +1,9 @@
 import type { QueryFilter } from 'mongoose';
-import type { InternshipInput } from '../../../shared/schemas.ts';
 import { forbidden, notFound } from '../../lib/http.ts';
 import type { AuthContext } from '../../middleware/auth.ts';
 import { InternshipModel } from './model.ts';
 
-// Rough conversion used only to rank by pay across currencies; never shown to users.
-const PKR_PER_USD = 280;
-const WEEKS_PER_MONTH = 4.33;
-
-export function monthlyPkr(i: Pick<InternshipInput, 'paid' | 'payAmount' | 'payCurrency' | 'payPeriod' | 'durationWeeks'>) {
-  if (!i.paid) return 0;
-  const pkr = i.payCurrency === 'USD' ? i.payAmount * PKR_PER_USD : i.payAmount;
-  if (i.payPeriod === 'week') return Math.round(pkr * WEEKS_PER_MONTH);
-  if (i.payPeriod === 'total') return Math.round(pkr / Math.max(i.durationWeeks / WEEKS_PER_MONTH, 1));
-  return pkr;
-}
+export { monthlyPkr } from '../../../shared/pay.ts';
 
 /** Internships students can currently see and apply to. */
 export function openFilter(): QueryFilter<any> {

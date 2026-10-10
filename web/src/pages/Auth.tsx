@@ -8,7 +8,7 @@ import { Briefcase, GraduationCap, MailCheck } from 'lucide-react';
 import { ForgotPasswordSchema, LoginSchema, RegisterSchema, ResetPasswordSchema, type LoginInput } from '@shared/schemas';
 import { Logo } from '../components/Layout';
 import { Button, Card, Input, cx } from '../components/ui';
-import { api } from '../lib/api';
+import { IS_DEMO, api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { applyServerErrors } from '../lib/forms';
 
@@ -63,6 +63,12 @@ export function LoginPage() {
         </div>
         <Button type="submit" className="w-full" size="lg" loading={isSubmitting}>Log in</Button>
       </form>
+      {IS_DEMO && (
+        <div className="mt-5 rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
+          <p className="font-semibold text-ink">Demo accounts</p>
+          <p className="mt-1">student@worknest.test or employer@worknest.test, password <code>Password123</code>.</p>
+        </div>
+      )}
     </AuthShell>
   );
 }

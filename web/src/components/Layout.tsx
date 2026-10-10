@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Suspense, lazy, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, NavLink, Navigate, Outlet, ScrollRestoration, useLocation, useNavigate } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bell, Building2, LayoutDashboard, LogOut, Menu, MessageSquare, Plus, Settings, User, X } from 'lucide-react';
 import type { Role } from '@shared/schemas';
-import { api } from '../lib/api';
+import { IS_DEMO, api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { timeAgo } from '../lib/format';
 import type { Notification } from '../lib/types';
@@ -266,10 +266,18 @@ function Footer() {
   );
 }
 
+// Only the GitHub Pages demo build loads this.
+const DemoBanner = IS_DEMO ? lazy(() => import('../demo/DemoBanner').then((m) => ({ default: m.DemoBanner }))) : null;
+
 export function Layout() {
   const { ready } = useAuth();
   return (
     <div className="flex min-h-screen flex-col">
+      {DemoBanner && ready && (
+        <Suspense fallback={null}>
+          <DemoBanner />
+        </Suspense>
+      )}
       <Header />
       <main className="flex-1">{ready ? <Outlet /> : <PageSpinner />}</main>
       <Footer />

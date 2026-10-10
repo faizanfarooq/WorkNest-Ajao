@@ -30,14 +30,28 @@ Open http://localhost:5173. Demo logins (password `Password123`):
 
 Password-reset emails print to the API console unless `RESEND_API_KEY` is set.
 
+## Static demo (GitHub Pages)
+
+`npm run build:demo` builds a version that needs no server or database: an in-browser backend (`web/src/demo/server.ts`) answers the same API routes, validates with the same shared schemas, and stores data in the visitor's browser (localStorage, resumes in IndexedDB). A bar at the top switches between the student and employer demo accounts and resets the data.
+
+Each visitor gets their own private copy, so two people can't interact with each other in the demo. For that, deploy the real app (see Vercel below).
+
+`.github/workflows/pages.yml` publishes it on every push to `main` or `rebuild`. One-time setup in the GitHub repo:
+
+1. **Settings → Pages → Build and deployment → Source: GitHub Actions.**
+2. Pages only deploys from the default branch unless you allow others. Either merge into `main`, or add `rebuild` under **Settings → Environments → github-pages → Deployment branches**.
+
+The demo is then at `https://<user>.github.io/<repo>/`. Try it locally with `npm run dev:demo`.
+
 ## Scripts
 
 | Command | What it does |
 |---|---|
 | `npm run dev` | API on :4000 (auto-restart) + Vite on :5173 (proxies `/api`) |
 | `npm run dev:memory` | Same, against a throwaway in-memory MongoDB with demo data |
+| `npm run dev:demo` / `build:demo` | Static demo with the in-browser backend (no API needed) |
 | `npm run seed` | Load demo data into `MONGODB_URI` |
-| `npm test` | API tests (Vitest + Supertest + in-memory MongoDB) |
+| `npm test` | API tests (in-memory MongoDB) and demo-backend tests |
 | `npm run typecheck` | TypeScript across server, shared and web |
 | `npm run build && npm start` | Production build served by the API process |
 

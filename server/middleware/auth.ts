@@ -1,86 +1,68 @@
-import type { Request, Response, NextFunction } from 'express';
+import type { NextFunction, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
-import { dbStore } from '../db.ts';
+import { env } from '../config/env.ts';
+import { forbidden, unauthorized } from '../lib/http.ts';
+import type { Role } from '../../shared/schemas.ts';
 
-export const JWT_SECRET = process.env.JWT_SECRET || 'worknest_secret_jwt_key_pakistan_2026';
-
-export interface AuthenticatedRequest extends Request {
-  user?: any;
+export interface AuthContext {
+  userId: string;
+  role: Role;
+  companyId?: string;
 }
 
-export const generateToken = (userId: string, role: string): string => {
-  return jwt.sign({ id: userId, role }, JWT_SECRET, {
-    expiresIn: '7d',
-  });
-};
-
-export const protect = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-  try {
-    let token: string | undefined;
-    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
-      token = req.headers.authorization.split(' ')[1];
+declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
+  namespace Express {
+    interface Request {
+      auth?: AuthContext;
     }
-
-    if (!token) {
-      return res.status(401).json({
-        success: false,
-        message: 'Authentication token missing. Please sign in to WorkNest Ajao.',
-      });
-    }
-
-    const decoded = jwt.verify(token, JWT_SECRET) as { id: string; role: string };
-    
-    // Look up in database or in-memory fallback
-    const user = await dbStore.findUserById(decoded.id);
-
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: 'The user belonging to this token no longer exists.',
-      });
-    }
-
-    req.user = user;
-    next();
-  } catch (error: any) {
-    return res.status(401).json({
-      success: false,
-      message: 'Invalid or expired authorization token.',
-      error: error.message,
-    });
   }
-};
+}
 
-export const restrictTo = (...roles: string[]) => {
-  return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    if (!req.user || !roles.includes(req.user.role)) {
-      return res.status(403).json({
-        success: false,
-        message: `Forbidden: Access restricted to [${roles.join(', ')}] roles only.`,
-      });
-    }
+export const ACCESS_TOKEN_TTL = '15m';
+
+export function signAccessToken(ctx: AuthContext) {
+  return jwt.sign({ role: ctx.role, companyId: ctx.companyId }, env().JWT_SECRET, {
+    subject: ctx.userId,
+    expiresIn: ACCESS_TOKEN_TTL,
+  });
+}
+
+function readToken(req: Request): AuthContext | undefined {
+  const header = req.headers.authorization;
+  if (!header?.startsWith('Bearer ')) return undefined;
+  try {
+    const payload = jwt.verify(header.slice(7), env().JWT_SECRET) as jwt.JwtPayload;
+    return { userId: payload.sub!, role: payload.role, companyId: payload.companyId };
+  } catch {
+    return undefined;
+  }
+}
+
+export function requireAuth(req: Request, _res: Response, next: NextFunction) {
+  const ctx = readToken(req);
+  if (!ctx) return next(unauthorized());
+  req.auth = ctx;
+  next();
+}
+
+/** Attaches req.auth when a valid token is present but never rejects. */
+export function optionalAuth(req: Request, _res: Response, next: NextFunction) {
+  req.auth = readToken(req);
+  next();
+}
+
+export function requireRole(...roles: Role[]) {
+  return (req: Request, _res: Response, next: NextFunction) => {
+    if (!req.auth) return next(unauthorized());
+    if (!roles.includes(req.auth.role)) return next(forbidden());
+    if (req.auth.role === 'employer' && !req.auth.companyId) return next(forbidden('No company linked to this account'));
     next();
   };
-};
+}
 
-/**
- * Helper to sanitize user object before sending in response,
- * honoring the WorkNest Low-GPA Shield.
- */
-export const sanitizeUser = (user: any, requestingUser?: any) => {
-  const userObj = user.toObject ? user.toObject() : { ...user };
-  delete userObj.password;
-
-  // If candidate has hideGpa enabled and someone else (e.g. founder) is viewing them:
-  if (userObj.role === 'candidate' && userObj.hideGpa) {
-    const isSelf = requestingUser && String(requestingUser._id) === String(userObj._id);
-    if (!isSelf) {
-      // Mask GPA and replace with proof-of-work reliability notice
-      delete userObj.gpa;
-      userObj.gpaShieldActive = true;
-      userObj.gpaStatus = 'GPA Shielded by WorkNest (Evaluated purely on verified portfolio & code audits)';
-    }
-  }
-
-  return userObj;
-};
+/** Narrowing helper for handlers that sit behind requireAuth. */
+export function auth(req: Request): AuthContext {
+  if (!req.auth) throw unauthorized();
+  return req.auth;
+}

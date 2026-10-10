@@ -1,21 +1,17 @@
-import tailwindcss from '@tailwindcss/vite';
-import react from '@vitejs/plugin-react';
-import path from 'path';
 import { defineConfig } from 'vite';
+import path from 'node:path';
+import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 
-export default defineConfig(() => {
-  return {
-    plugins: [react(), tailwindcss()],
-    resolve: {
-      alias: {
-        '@': path.resolve(import.meta.dirname || '.', '.'),
-      },
-    },
-    server: {
-      hmr: {
-        overlay: false,
-        clientPort: 443,
-      },
-    },
-  };
+export default defineConfig({
+  root: 'web',
+  plugins: [react(), tailwindcss()],
+  resolve: {
+    alias: { '@shared': path.resolve(import.meta.dirname, 'shared') },
+  },
+  build: { outDir: '../dist', emptyOutDir: true },
+  server: {
+    port: 5173,
+    proxy: { '/api': 'http://localhost:4000' },
+  },
 });

@@ -14,6 +14,8 @@ beforeAll(async () => {
   process.env.NODE_ENV = 'test';
   process.env.MONGODB_URI = mongo.getUri('worknest-test');
   process.env.JWT_SECRET = 'test-secret-that-is-at-least-thirty-two-chars';
+  // Off by default in real use; on here so the verification flow is covered.
+  process.env.REQUIRE_EMAIL_VERIFICATION = 'true';
   const { connectDB } = await import('../server/db.ts');
   const { createApp } = await import('../server/app.ts');
   await connectDB();
@@ -30,15 +32,17 @@ beforeEach(async () => {
   await Promise.all(Object.values(mongoose.connection.collections).map((c) => c.deleteMany({})));
 });
 
-async function register(body: Record<string, string>) {
+/** Registers and, unless told otherwise, marks the email verified (the real token is only emailed). */
+async function register(body: Record<string, string>, { verified = true } = {}) {
   const res = await request(app).post('/api/auth/register').send({ password: 'Password123', ...body });
   expect(res.status, JSON.stringify(res.body)).toBe(201);
+  if (verified) await mongoose.connection.collection('users').updateOne({ email: body.email }, { $set: { emailVerified: true } });
   return { token: res.body.accessToken as string, user: res.body.user, cookie: res.headers['set-cookie'] as unknown as string[] };
 }
 
-const student = (email = 'sara@uni.test') => register({ role: 'student', name: 'Sara Ali', email });
-const employer = (email = 'hr@acme.test', companyName = 'Acme Labs') =>
-  register({ role: 'employer', name: 'Hamza HR', email, companyName });
+const student = (email = 'sara@uni.test', opts?: { verified?: boolean }) => register({ role: 'student', name: 'Sara Ali', email }, opts);
+const employer = (email = 'hr@acme.test', companyName = 'Acme Labs', opts?: { verified?: boolean }) =>
+  register({ role: 'employer', name: 'Hamza HR', email, companyName }, opts);
 
 const internshipBody = {
   title: 'Frontend Intern',
@@ -128,6 +132,81 @@ describe('auth', () => {
     await request(app).post('/api/auth/reset-password').send({ token, password: 'NewPassword9' }).expect(200);
     await request(app).post('/api/auth/reset-password').send({ token, password: 'NewPassword9' }).expect(400);
     await request(app).post('/api/auth/login').send({ email: 'sara@uni.test', password: 'NewPassword9' }).expect(200);
+  });
+});
+
+describe('email verification', () => {
+  const sha256 = async (s: string) => (await import('node:crypto')).createHash('sha256').update(s).digest('hex');
+
+  it('blocks publishing until the email is verified, then allows it', async () => {
+    const { token, user } = await employer('hr@acme.test', 'Acme Labs', { verified: false });
+    expect(user.emailVerified).toBe(false);
+    const stored = await mongoose.connection.collection('users').findOne({ email: 'hr@acme.test' });
+    expect(stored?.emailVerifyHash).toBeTruthy();
+
+    const auth = { Authorization: `Bearer ${token}` };
+    await request(app).post('/api/internships').set(auth).send(internshipBody).expect(403);
+    // Drafts are fine before verifying.
+    const draft = await request(app).post('/api/internships').set(auth).send({ ...internshipBody, status: 'draft' }).expect(201);
+    await request(app).patch(`/api/internships/${draft.body.internship._id}/status`).set(auth).send({ status: 'open' }).expect(403);
+
+    const verifyToken = 'known-verify-token-123';
+    await mongoose.connection.collection('users').updateOne(
+      { email: 'hr@acme.test' },
+      { $set: { emailVerifyHash: await sha256(verifyToken), emailVerifyExpires: new Date(Date.now() + 60_000) } },
+    );
+    await request(app).post('/api/auth/verify-email').send({ token: verifyToken }).expect(200);
+    await request(app).post('/api/auth/verify-email').send({ token: verifyToken }).expect(400);
+
+    const me = await request(app).get('/api/auth/me').set(auth);
+    expect(me.body.user.emailVerified).toBe(true);
+    await request(app).patch(`/api/internships/${draft.body.internship._id}/status`).set(auth).send({ status: 'open' }).expect(200);
+  });
+
+  it('blocks applying until the student verifies', async () => {
+    const emp = await employer();
+    const internship = await postInternship(emp.token, { questions: [] });
+    const s = await student('new@uni.test', { verified: false });
+    const res = await request(app).post(`/api/applications/apply/${internship._id}`).set('Authorization', `Bearer ${s.token}`).send({});
+    expect(res.status).toBe(403);
+    expect(res.body.error).toMatch(/verify your email/i);
+  });
+
+  it('treats accounts from before verification existed as verified', async () => {
+    const { token } = await student('old@uni.test', { verified: false });
+    await mongoose.connection.collection('users').updateOne({ email: 'old@uni.test' }, { $unset: { emailVerified: 1 } });
+    const me = await request(app).get('/api/auth/me').set('Authorization', `Bearer ${token}`);
+    expect(me.body.user.emailVerified).toBe(true);
+  });
+
+  it('resends only while unverified', async () => {
+    const s = await student('new@uni.test', { verified: false });
+    const auth = { Authorization: `Bearer ${s.token}` };
+    const before = (await mongoose.connection.collection('users').findOne({ email: 'new@uni.test' }))?.emailVerifyHash;
+    const res = await request(app).post('/api/auth/resend-verification').set(auth).expect(200);
+    expect(res.body.alreadyVerified).toBeUndefined();
+    const after = (await mongoose.connection.collection('users').findOne({ email: 'new@uni.test' }))?.emailVerifyHash;
+    expect(after).toBeTruthy();
+    expect(after).not.toBe(before);
+
+    await mongoose.connection.collection('users').updateOne({ email: 'new@uni.test' }, { $set: { emailVerified: true } });
+    const again = await request(app).post('/api/auth/resend-verification').set(auth).expect(200);
+    expect(again.body.alreadyVerified).toBe(true);
+  });
+});
+
+describe('google sign-in', () => {
+  it('reports no client ID and refuses when Google is not configured', async () => {
+    const providers = await request(app).get('/api/auth/providers').expect(200);
+    expect(providers.body.googleClientId).toBeNull();
+    await request(app).post('/api/auth/google').send({ credential: 'not-a-real-google-token' }).expect(400);
+  });
+
+  it('tells a password-less (Google) account to use Google instead of failing silently', async () => {
+    await mongoose.connection.collection('users').insertOne({ name: 'G User', email: 'g@gmail.test', role: 'student', googleId: 'g-123', emailVerified: true });
+    const res = await request(app).post('/api/auth/login').send({ email: 'g@gmail.test', password: 'Whatever123' });
+    expect(res.status).toBe(401);
+    expect(res.body.error).toMatch(/google/i);
   });
 });
 

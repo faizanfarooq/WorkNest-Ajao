@@ -30,6 +30,11 @@ Open http://localhost:5173. Demo logins (password `Password123`):
 
 Password-reset emails print to the API console unless `RESEND_API_KEY` is set.
 
+Optional extras, both off until configured in `.env`:
+
+- **Continue with Google**: set `GOOGLE_CLIENT_ID` (an OAuth "Web application" client from Google Cloud, with your site under *Authorized JavaScript origins*). The button stays hidden without it.
+- **Email verification**: set `REQUIRE_EMAIL_VERIFICATION=true` once email delivery works. New password sign-ups then get a link and can't apply to or publish internships until they click it. Google sign-ups count as verified already.
+
 ## Static demo (GitHub Pages)
 
 `npm run build:demo` builds a version that needs no server or database: an in-browser backend (`web/src/demo/server.ts`) answers the same API routes, validates with the same shared schemas, and stores data in the visitor's browser (localStorage, resumes in IndexedDB). A bar at the top switches between the student and employer demo accounts and resets the data.

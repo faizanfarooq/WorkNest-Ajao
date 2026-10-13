@@ -8,7 +8,7 @@ import {
   type InternshipQuery,
 } from '../../../shared/schemas.ts';
 import { assertObjectId, conflict, escapeRegex, notFound, validate } from '../../lib/http.ts';
-import { auth, optionalAuth, requireAuth, requireRole } from '../../middleware/auth.ts';
+import { assertEmailVerified, auth, optionalAuth, requireAuth, requireRole } from '../../middleware/auth.ts';
 import { ApplicationModel } from '../applications/model.ts';
 import { CompanyModel } from '../companies/model.ts';
 import { InternshipModel, SavedInternshipModel } from './model.ts';
@@ -158,6 +158,7 @@ router.get('/mine', requireAuth, requireRole('employer'), async (req, res) => {
 router.post('/', requireAuth, requireRole('employer'), validate(InternshipSchema), async (req, res) => {
   const input = req.body as InternshipInput;
   const ctx = auth(req);
+  if (input.status === 'open') await assertEmailVerified(ctx.userId);
   const internship = await InternshipModel.create({
     ...input,
     companyId: ctx.companyId,
@@ -175,6 +176,7 @@ router.put('/:id', requireAuth, requireRole('employer'), validate(InternshipSche
   const input = req.body as InternshipInput;
   // Editing a closed posting shouldn't silently reopen it.
   const status = internship.status === 'closed' ? 'closed' : input.status;
+  if (status === 'open' && internship.status !== 'open') await assertEmailVerified(auth(req).userId);
   internship.set({ ...input, status, payMonthlyPkr: monthlyPkr(input) });
   if (status === 'open' && !internship.publishedAt) internship.publishedAt = new Date();
   await internship.save();
@@ -185,6 +187,7 @@ router.patch('/:id/status', requireAuth, requireRole('employer'), validate(Inter
   const id = String(req.params.id);
   assertObjectId(id, 'Internship');
   const internship = await ownedInternship(id, auth(req));
+  if (req.body.status === 'open' && internship.status !== 'open') await assertEmailVerified(auth(req).userId);
   internship.status = req.body.status;
   if (internship.status === 'open' && !internship.publishedAt) internship.publishedAt = new Date();
   await internship.save();

@@ -5,9 +5,15 @@ const UserSchema = new Schema(
   {
     name: { type: String, required: true, trim: true },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-    passwordHash: { type: String, required: true, select: false },
+    // Absent for accounts created with Google that never set a password.
+    passwordHash: { type: String, select: false },
     role: { type: String, enum: ROLES, required: true },
     companyId: { type: Schema.Types.ObjectId, ref: 'Company' },
+    googleId: { type: String, index: { unique: true, sparse: true } },
+    // Missing on accounts created before verification existed; those count as verified.
+    emailVerified: Boolean,
+    emailVerifyHash: { type: String, select: false },
+    emailVerifyExpires: { type: Date, select: false },
     passwordResetHash: { type: String, select: false },
     passwordResetExpires: { type: Date, select: false },
     lastLoginAt: Date,

@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { env } from '../config/env.ts';
 import { forbidden, unauthorized } from '../lib/http.ts';
 import type { Role } from '../../shared/schemas.ts';
+import { UserModel } from '../modules/auth/models.ts';
 
 export interface AuthContext {
   userId: string;
@@ -59,6 +60,14 @@ export function requireRole(...roles: Role[]) {
     if (req.auth.role === 'employer' && !req.auth.companyId) return next(forbidden('No company linked to this account'));
     next();
   };
+}
+
+/** Applying and publishing need a confirmed email. Accounts from before verification existed have no flag and pass. */
+export async function assertEmailVerified(userId: string) {
+  if (!env().REQUIRE_EMAIL_VERIFICATION) return;
+  if (!(await UserModel.exists({ _id: userId, emailVerified: { $ne: false } }))) {
+    throw forbidden('Verify your email first. Use the link we emailed you, or resend it from the banner at the top of the page.');
+  }
 }
 
 /** Narrowing helper for handlers that sit behind requireAuth. */

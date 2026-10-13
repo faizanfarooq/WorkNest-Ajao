@@ -1,10 +1,12 @@
 import { Suspense, lazy, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, NavLink, Navigate, Outlet, ScrollRestoration, useLocation, useNavigate } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Bell, Building2, LayoutDashboard, LogOut, Menu, MessageSquare, Plus, Settings, User, X } from 'lucide-react';
+import { toast } from 'sonner';
+import { Bell, Building2, LayoutDashboard, LogOut, MailWarning, Menu, MessageSquare, Plus, Settings, User, X } from 'lucide-react';
 import type { Role } from '@shared/schemas';
 import { IS_DEMO, api } from '../lib/api';
 import { useAuth } from '../lib/auth';
+import { toastError } from '../lib/forms';
 import { timeAgo } from '../lib/format';
 import type { Notification } from '../lib/types';
 import { Avatar, ButtonLink, PageSpinner, cx } from './ui';
@@ -269,6 +271,36 @@ function Footer() {
 // Only the GitHub Pages demo build loads this.
 const DemoBanner = IS_DEMO ? lazy(() => import('../demo/DemoBanner').then((m) => ({ default: m.DemoBanner }))) : null;
 
+/** Nudges password sign-ups to confirm their email; applying and posting are blocked until they do. */
+function VerifyEmailBanner() {
+  const { user, reload } = useAuth();
+  const resend = useMutation({
+    mutationFn: () => api<{ alreadyVerified?: boolean }>('/auth/resend-verification', { method: 'POST' }),
+    onSuccess: (res) => (res.alreadyVerified ? reload() : toast.success(`We sent a new link to ${user?.email}`)),
+    onError: toastError,
+  });
+  if (user?.emailVerified !== false) return null;
+
+  return (
+    <div className="border-b border-amber-200 bg-amber-50 text-amber-950">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-sm sm:px-6">
+        <MailWarning className="size-4 shrink-0 text-amber-700" />
+        <p className="min-w-0 flex-1">
+          <span className="font-semibold">Verify your email</span> to apply to or post internships. We sent a link to{' '}
+          <span className="break-all font-semibold">{user.email}</span>.
+        </p>
+        <button
+          className="font-semibold text-amber-800 underline-offset-2 hover:underline disabled:opacity-50"
+          onClick={() => resend.mutate()}
+          disabled={resend.isPending}
+        >
+          {resend.isPending ? 'Sending…' : 'Resend link'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function Layout() {
   const { ready } = useAuth();
   return (
@@ -279,6 +311,7 @@ export function Layout() {
         </Suspense>
       )}
       <Header />
+      {ready && <VerifyEmailBanner />}
       <main className="flex-1">{ready ? <Outlet /> : <PageSpinner />}</main>
       <Footer />
       <ScrollRestoration />

@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import type { LoginInput, RegisterInput } from '@shared/schemas';
+import type { GoogleAuthInput, LoginInput, RegisterInput } from '@shared/schemas';
 import { api, refreshSession, setAccessToken, setSessionLostHandler } from './api';
 import type { SessionUser } from './types';
 
@@ -14,6 +14,8 @@ interface AuthState {
   ready: boolean;
   login: (input: LoginInput) => Promise<SessionUser>;
   register: (input: RegisterInput) => Promise<SessionUser>;
+  /** Signs in (or, with a role, signs up) using the ID token from Google's button. */
+  google: (input: GoogleAuthInput) => Promise<SessionUser>;
   logout: () => Promise<void>;
   /** Re-reads the user (e.g. after renaming yourself or your company). */
   reload: () => Promise<void>;
@@ -55,6 +57,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       register: async (input) => {
         queryClient.clear();
         return adopt(await api<Session>('/auth/register', { method: 'POST', body: input }));
+      },
+      google: async (input) => {
+        queryClient.clear();
+        return adopt(await api<Session>('/auth/google', { method: 'POST', body: input }));
       },
       logout: async () => {
         await api('/auth/logout', { method: 'POST' }).catch(() => {});

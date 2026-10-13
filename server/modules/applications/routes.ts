@@ -8,7 +8,7 @@ import {
   type ApplyInput,
 } from '../../../shared/schemas.ts';
 import { assertObjectId, badRequest, conflict, forbidden, notFound, validate } from '../../lib/http.ts';
-import { auth, requireAuth, requireRole } from '../../middleware/auth.ts';
+import { assertEmailVerified, auth, requireAuth, requireRole } from '../../middleware/auth.ts';
 import { UserModel } from '../auth/models.ts';
 import { CompanyModel } from '../companies/model.ts';
 import { InternshipModel } from '../internships/model.ts';
@@ -49,6 +49,7 @@ router.post('/apply/:internshipId', requireAuth, requireRole('student'), validat
   assertObjectId(internshipId, 'Internship');
   const { userId } = auth(req);
   const input = req.body as ApplyInput;
+  await assertEmailVerified(userId);
 
   const internship = await InternshipModel.findById(internshipId).lean();
   if (!internship || internship.status === 'draft') throw notFound('Internship');

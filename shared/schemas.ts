@@ -84,6 +84,18 @@ export const LoginSchema = z.object({
 });
 export type LoginInput = z.infer<typeof LoginSchema>;
 
+/** `credential` is the ID token from Google's button. Role (and company) only matter when creating an account. */
+export const GoogleAuthSchema = z.object({
+  credential: z.string().min(10),
+  role: z.enum(['student', 'employer']).optional(),
+  companyName: trimmed(80).optional(),
+});
+export type GoogleAuthInput = z.infer<typeof GoogleAuthSchema>;
+
+export const VerifyEmailSchema = z.object({
+  token: z.string().min(10),
+});
+
 export const ForgotPasswordSchema = z.object({
   email: z.email('Enter a valid email').trim().toLowerCase(),
 });

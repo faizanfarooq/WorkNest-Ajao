@@ -21,7 +21,22 @@ export function createApp() {
 
   app.set('trust proxy', 1);
   app.disable('x-powered-by');
-  app.use(helmet());
+  // Defaults, plus what Google's sign-in button needs when this server also serves the built frontend.
+  const gsi = 'https://accounts.google.com/gsi/';
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          'script-src': ["'self'", `${gsi}client`],
+          'frame-src': ["'self'", gsi],
+          'connect-src': ["'self'", gsi],
+          'style-src': ["'self'", 'https:', "'unsafe-inline'", `${gsi}style`],
+        },
+      },
+      crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
+      referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+    }),
+  );
   app.use(cors({ origin: config.CLIENT_URL, credentials: true }));
   app.use(express.json({ limit: '100kb' }));
   app.use(cookieParser());

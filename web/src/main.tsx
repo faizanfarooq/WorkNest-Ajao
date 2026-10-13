@@ -7,7 +7,7 @@ import './index.css';
 import { Layout, RequireAuth } from './components/Layout';
 import { ApiError } from './lib/api';
 import { AuthProvider, useAuth } from './lib/auth';
-import { ForgotPasswordPage, LoginPage, ResetPasswordPage, SignupPage } from './pages/Auth';
+import { ForgotPasswordPage, LoginPage, ResetPasswordPage, SignupPage, VerifyEmailPage } from './pages/Auth';
 import { ApplicantsPage, CompanySettingsPage, EmployerDashboard, InternshipFormPage } from './pages/employer';
 import Home from './pages/Home';
 import InternshipsPage from './pages/Internships';
@@ -56,6 +56,7 @@ const router = createBrowserRouter([
       { path: '/signup', element: <SignupPage /> },
       { path: '/forgot-password', element: <ForgotPasswordPage /> },
       { path: '/reset-password', element: <ResetPasswordPage /> },
+      { path: '/verify-email', element: <VerifyEmailPage /> },
 
       { path: '/dashboard', element: <RequireAuth><Dashboard /></RequireAuth> },
       { path: '/messages/:id?', element: <RequireAuth><MessagesPage /></RequireAuth> },

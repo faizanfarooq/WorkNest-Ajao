@@ -5,6 +5,8 @@ export interface SessionUser {
   name: string;
   email: string;
   role: Role;
+  /** Absent in the demo build. */
+  emailVerified?: boolean;
   company: { id: string; name: string; slug: string; logoUrl?: string } | null;
 }
 

@@ -84,7 +84,7 @@ export const LoginSchema = z.object({
 });
 export type LoginInput = z.infer<typeof LoginSchema>;
 
-/** `credential` is the ID token from Google's button. Role (and company) only matter when creating an account. */
+/** `credential` is the Firebase ID token from the Google popup. Role (and company) only matter when creating an account. */
 export const GoogleAuthSchema = z.object({
   credential: z.string().min(10),
   role: z.enum(['student', 'employer']).optional(),

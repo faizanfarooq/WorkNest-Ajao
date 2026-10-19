@@ -21,16 +21,16 @@ export function createApp() {
 
   app.set('trust proxy', 1);
   app.disable('x-powered-by');
-  // Defaults, plus what Google's sign-in button needs when this server also serves the built frontend.
-  const gsi = 'https://accounts.google.com/gsi/';
+  // Defaults, plus what Firebase's Google sign-in needs when this server also serves the built frontend:
+  // Google's API script, a frame on the Firebase auth domain, Google's token endpoints and profile photos.
   app.use(
     helmet({
       contentSecurityPolicy: {
         directives: {
-          'script-src': ["'self'", `${gsi}client`],
-          'frame-src': ["'self'", gsi],
-          'connect-src': ["'self'", gsi],
-          'style-src': ["'self'", 'https:', "'unsafe-inline'", `${gsi}style`],
+          'script-src': ["'self'", 'https://apis.google.com'],
+          'frame-src': ["'self'", 'https://*.firebaseapp.com', 'https://accounts.google.com'],
+          'connect-src': ["'self'", 'https://identitytoolkit.googleapis.com', 'https://securetoken.googleapis.com'],
+          'img-src': ["'self'", 'data:', 'blob:', 'https://*.googleusercontent.com'],
         },
       },
       crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },

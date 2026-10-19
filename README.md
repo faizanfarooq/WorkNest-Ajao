@@ -32,7 +32,7 @@ Password-reset emails print to the API console unless `RESEND_API_KEY` is set.
 
 Optional extras, both off until configured in `.env`:
 
-- **Continue with Google**: set `GOOGLE_CLIENT_ID` (an OAuth "Web application" client from Google Cloud, with your site under *Authorized JavaScript origins*). The button stays hidden without it.
+- **Continue with Google**: set `FIREBASE_PROJECT_ID` and the `VITE_FIREBASE_*` values (see [Sign in with Google](#sign-in-with-google-optional)). The button stays hidden without them.
 - **Email verification**: set `REQUIRE_EMAIL_VERIFICATION=true` once email delivery works. New password sign-ups then get a link and can't apply to or publish internships until they click it. Google sign-ups count as verified already.
 
 ## Static demo (GitHub Pages)
@@ -92,6 +92,15 @@ tests/api.test.ts        End-to-end API tests
 - Login returns a 15-minute **access token** (kept in memory only) and sets a 30-day **refresh token** in an `httpOnly` cookie scoped to `/api/auth`.
 - Refresh tokens are random, stored hashed, and **single-use**: each refresh issues a new one. Logout, password reset and password change revoke them.
 - The client retries any 401 once after a silent refresh.
+
+### Sign in with Google (optional)
+
+The log-in and sign-up pages show a Google button when Firebase is configured. The browser runs Firebase's Google popup and sends the resulting ID token to `POST /api/auth/google`; the server verifies it with `firebase-admin` (project ID only, no service-account key) and then issues the normal WorkNest session above. Firebase keeps no session of its own.
+
+- Unknown Google accounts are only created from the sign-up page, where the person picks student or employer.
+- Google sign-in on an email that registered with a password but was never verified links the two and **turns off that password** (Google proved who owns the email; whoever set the password didn't), revoking its sessions. The owner can set a new one with "Forgot password". Google accounts count as email-verified.
+
+Setup: create a Firebase project, enable **Authentication → Sign-in method → Google**, add your domains under **Authentication → Settings → Authorized domains**, register a web app, and fill in `FIREBASE_PROJECT_ID` and the `VITE_FIREBASE_*` values in `.env` (and in Vercel). The static demo never shows the button.
 
 ## Deploying to Vercel (free tier)
 

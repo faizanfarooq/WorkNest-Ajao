@@ -290,7 +290,8 @@ export function Avatar({ name, src, size = 'md', square }: { name: string; src?:
   const shape = square ? 'rounded-xl' : 'rounded-full';
   const [broken, setBroken] = useState(false);
   if (src && !broken) {
-    return <img src={src} alt="" onError={() => setBroken(true)} className={cx(dims, shape, 'shrink-0 border border-slate-200 bg-white object-cover')} />;
+    // no-referrer: Google profile photos sometimes refuse requests that carry a Referer.
+    return <img src={src} alt="" referrerPolicy="no-referrer" onError={() => setBroken(true)} className={cx(dims, shape, 'shrink-0 border border-slate-200 bg-white object-cover')} />;
   }
   return (
     <div aria-hidden className={cx(dims, shape, colorFor(name), 'flex shrink-0 items-center justify-center font-bold text-white')}>

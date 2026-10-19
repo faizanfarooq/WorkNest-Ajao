@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import type { GoogleAuthInput, LoginInput, RegisterInput } from '@shared/schemas';
 import { api, refreshSession, setAccessToken, setSessionLostHandler } from './api';
 import type { SessionUser } from './types';
@@ -14,7 +15,7 @@ interface AuthState {
   ready: boolean;
   login: (input: LoginInput) => Promise<SessionUser>;
   register: (input: RegisterInput) => Promise<SessionUser>;
-  /** Signs in (or, with a role, signs up) using the ID token from Google's button. */
+  /** Signs in (or, with a role, signs up) using the Firebase ID token from the Google popup. */
   google: (input: GoogleAuthInput) => Promise<SessionUser>;
   logout: () => Promise<void>;
   /** Re-reads the user (e.g. after renaming yourself or your company). */
@@ -60,7 +61,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       google: async (input) => {
         queryClient.clear();
-        return adopt(await api<Session>('/auth/google', { method: 'POST', body: input }));
+        const res = await api<Session & { passwordReset?: boolean }>('/auth/google', { method: 'POST', body: input });
+        if (res.passwordReset) {
+          toast.info('Google is now linked to your account. For security your old password was turned off; use "Forgot password" to set a new one.', { duration: 10_000 });
+        }
+        return adopt(res);
       },
       logout: async () => {
         await api('/auth/logout', { method: 'POST' }).catch(() => {});

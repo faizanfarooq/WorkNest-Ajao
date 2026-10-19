@@ -270,6 +270,7 @@ function publicUser(u: Row) {
     name: u.name,
     email: u.email,
     role: u.role,
+    avatarUrl: null,
     company: c ? { id: c._id, name: c.name, slug: c.slug, logoUrl: c.logoUrl } : null,
   };
 }

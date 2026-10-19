@@ -5,6 +5,8 @@ import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig(({ mode }) => ({
   root: 'web',
+  // Read .env from the repo root (only VITE_* variables ever reach the browser).
+  envDir: import.meta.dirname,
   // GitHub Pages serves the demo from /<repo>/; everywhere else the app sits at the root.
   base: process.env.VITE_BASE ?? '/',
   plugins: [react(), tailwindcss()],

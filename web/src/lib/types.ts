@@ -7,6 +7,8 @@ export interface SessionUser {
   role: Role;
   /** Absent in the demo build. */
   emailVerified?: boolean;
+  /** Profile photo from Google, when the account uses Google sign-in. */
+  avatarUrl: string | null;
   company: { id: string; name: string; slug: string; logoUrl?: string } | null;
 }
 

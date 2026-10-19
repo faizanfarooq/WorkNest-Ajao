@@ -125,12 +125,18 @@ export function SignupPage() {
   });
 
   // Google supplies the name and a verified email; we still need the role (and company for employers).
-  const onGoogle = async (credential: string) => {
+  // Checked before the popup opens so nobody goes through Google only to be sent back.
+  const canStartGoogle = () => {
     const { role, companyName = '' } = form.getValues();
     if (role === 'employer' && companyName.trim().length < 2) {
       form.setError('companyName', { message: 'Enter your company name, then continue with Google' });
-      return;
+      form.setFocus('companyName');
+      return false;
     }
+    return true;
+  };
+  const onGoogle = async (credential: string) => {
+    const { role, companyName = '' } = form.getValues();
     try {
       const u = await google({ credential, role, companyName: role === 'employer' ? companyName.trim() : undefined });
       toast.success(`Welcome, ${u.name.split(' ')[0]}`);
@@ -164,7 +170,7 @@ export function SignupPage() {
         </fieldset>
         {/* Company comes before the Google button because Google sign-up needs it too. */}
         {role === 'employer' && <Input label="Company name" autoComplete="organization" error={errors.companyName?.message} {...form.register('companyName')} />}
-        <GoogleButton text="signup_with" onCredential={onGoogle} />
+        <GoogleButton text="signup_with" canStart={canStartGoogle} onCredential={onGoogle} />
         <Input label="Full name" autoComplete="name" error={errors.name?.message} {...form.register('name')} />
         <Input label={role === 'employer' ? 'Work email' : 'Email'} type="email" autoComplete="email" error={errors.email?.message} {...form.register('email')} />
         <Input label="Password" type="password" autoComplete="new-password" hint="At least 8 characters, with a letter and a number" error={errors.password?.message} {...form.register('password')} />

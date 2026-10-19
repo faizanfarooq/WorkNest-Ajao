@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRight, Bell, FileText, MapPin, MessageSquare, Search, ShieldCheck, Sparkles } from 'lucide-react';
+import { ArrowRight, Bell, FileText, MapPin, MessageSquare, Search, ShieldCheck } from 'lucide-react';
 import { CITIES } from '@shared/schemas';
 import { InternshipCard } from '../components/internships';
 import { Avatar, Button, ButtonLink, CompanyName, Spinner } from '../components/ui';
@@ -24,10 +24,6 @@ export default function Home() {
     queryFn: () => api<{ skills: { name: string; count: number }[] }>('/internships/popular-skills'),
   });
   const companies = useQuery({ queryKey: ['companies'], queryFn: () => api<{ companies: Company[] }>('/companies') });
-  const stats = useQuery({
-    queryKey: ['stats'],
-    queryFn: () => api<{ openRoles: number; companies: number; applications: number }>('/internships/stats'),
-  });
 
   const onSearch = (e: FormEvent) => {
     e.preventDefault();
@@ -43,11 +39,7 @@ export default function Home() {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,var(--color-brand-100),transparent_55%)]" aria-hidden />
         <div className="relative mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-24">
           <div className="max-w-3xl">
-            <p className="inline-flex items-center gap-2 rounded-full border border-brand-200 bg-brand-50 px-3 py-1 text-sm font-semibold text-brand-800">
-              <Sparkles className="size-4" />
-              {stats.data ? `${stats.data.openRoles} open internships right now` : 'Internships for students in Pakistan'}
-            </p>
-            <h1 className="mt-5 text-4xl font-extrabold tracking-tight text-ink sm:text-6xl">
+            <h1 className="text-4xl font-extrabold tracking-tight text-ink sm:text-6xl">
               Your first role starts <span className="text-brand-700">here</span>.
             </h1>
             <p className="mt-5 max-w-2xl text-lg text-slate-600">

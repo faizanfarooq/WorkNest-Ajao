@@ -196,10 +196,9 @@ describe('email verification', () => {
 });
 
 describe('google sign-in', () => {
-  it('reports no client ID and refuses when Google is not configured', async () => {
-    const providers = await request(app).get('/api/auth/providers').expect(200);
-    expect(providers.body.googleClientId).toBeNull();
-    await request(app).post('/api/auth/google').send({ credential: 'not-a-real-google-token' }).expect(400);
+  it('refuses when Firebase is not configured on the server', async () => {
+    const res = await request(app).post('/api/auth/google').send({ credential: 'not-a-real-google-token' });
+    expect(res.status).toBe(503);
   });
 
   it('tells a password-less (Google) account to use Google instead of failing silently', async () => {
@@ -207,6 +206,93 @@ describe('google sign-in', () => {
     const res = await request(app).post('/api/auth/login').send({ email: 'g@gmail.test', password: 'Whatever123' });
     expect(res.status).toBe(401);
     expect(res.body.error).toMatch(/google/i);
+  });
+
+  describe('with a verified Firebase token', () => {
+    // Real ID tokens can only come from Google, so these swap the verifier; the route logic runs unchanged.
+    const identities: Record<string, { googleId: string; email: string; name?: string; picture?: string }> = {
+      'token-sara-google-0001': { googleId: 'g-sara', email: 'sara@uni.test', name: 'Sara Ali', picture: 'https://lh3.googleusercontent.com/a/sara' },
+      'token-new-person-0001': { googleId: 'g-new', email: 'new@gmail.test', name: 'New Person', picture: 'https://lh3.googleusercontent.com/a/new' },
+    };
+
+    beforeAll(async () => {
+      const { setGoogleVerifier } = await import('../server/lib/firebase.ts');
+      const { unauthorized } = await import('../server/lib/http.ts');
+      setGoogleVerifier(async (token) => {
+        const id = identities[token];
+        if (!id) throw unauthorized('Google sign-in could not be verified. Please try again.');
+        return id;
+      });
+    });
+    afterAll(async () => {
+      (await import('../server/lib/firebase.ts')).setGoogleVerifier();
+    });
+
+    const google = (body: Record<string, unknown>) => request(app).post('/api/auth/google').send(body);
+
+    it('rejects tokens that fail verification', async () => {
+      expect((await google({ credential: 'forged-token-forged-token' })).status).toBe(401);
+    });
+
+    it('does not create an account from the log-in page, but does from sign-up', async () => {
+      expect((await google({ credential: 'token-new-person-0001' })).status).toBe(404);
+
+      const res = await google({ credential: 'token-new-person-0001', role: 'student' });
+      expect(res.status).toBe(201);
+      expect(res.body.user).toMatchObject({ name: 'New Person', email: 'new@gmail.test', role: 'student', emailVerified: true, avatarUrl: 'https://lh3.googleusercontent.com/a/new' });
+      expect(res.headers['set-cookie']?.[0]).toMatch(/^wn_rt=/);
+      await request(app).get('/api/profile/me').set('Authorization', `Bearer ${res.body.accessToken}`).expect(200);
+
+      // Second time it is a plain sign-in, even if a role is sent again.
+      const again = await google({ credential: 'token-new-person-0001', role: 'employer', companyName: 'Ignored' });
+      expect(again.status).toBe(200);
+      expect(again.body.user.role).toBe('student');
+
+      const change = await request(app)
+        .post('/api/auth/change-password')
+        .set('Authorization', `Bearer ${again.body.accessToken}`)
+        .send({ currentPassword: 'x', newPassword: 'Password456' });
+      expect(change.status).toBe(400);
+      expect(change.body.error).toMatch(/Google/);
+    });
+
+    it('creates employers with their company and requires a company name', async () => {
+      expect((await google({ credential: 'token-new-person-0001', role: 'employer' })).status).toBe(400);
+      const res = await google({ credential: 'token-new-person-0001', role: 'employer', companyName: 'Nimbus Labs' });
+      expect(res.status).toBe(201);
+      expect(res.body.user.company).toMatchObject({ name: 'Nimbus Labs' });
+    });
+
+    it('links an unverified password account and revokes its password and sessions', async () => {
+      const { cookie } = await student('sara@uni.test', { verified: false });
+      const res = await google({ credential: 'token-sara-google-0001' });
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ passwordReset: true, user: { email: 'sara@uni.test', role: 'student', emailVerified: true } });
+
+      expect((await request(app).post('/api/auth/login').send({ email: 'sara@uni.test', password: 'Password123' })).status).toBe(401);
+      expect((await request(app).post('/api/auth/refresh').set('Cookie', cookie)).status).toBe(401);
+
+      // Later Google sign-ins don't touch the account again.
+      expect((await google({ credential: 'token-sara-google-0001' })).body.passwordReset).toBe(false);
+    });
+
+    it('links a verified password account and keeps its password', async () => {
+      await student();
+      const res = await google({ credential: 'token-sara-google-0001' });
+      expect(res.body).toMatchObject({ passwordReset: false, user: { email: 'sara@uni.test', avatarUrl: 'https://lh3.googleusercontent.com/a/sara' } });
+      expect((await request(app).post('/api/auth/login').send({ email: 'sara@uni.test', password: 'Password123' })).status).toBe(200);
+    });
+
+    it('keeps the session in the refresh cookie and signs out', async () => {
+      const res = await google({ credential: 'token-new-person-0001', role: 'student' });
+      const refreshed = await request(app).post('/api/auth/refresh').set('Cookie', res.headers['set-cookie'] as unknown as string[]);
+      expect(refreshed.status).toBe(200);
+      expect(refreshed.body.user.email).toBe('new@gmail.test');
+      const rotated = refreshed.headers['set-cookie'] as unknown as string[];
+
+      expect((await request(app).post('/api/auth/logout').set('Cookie', rotated)).status).toBe(204);
+      expect((await request(app).post('/api/auth/refresh').set('Cookie', rotated)).status).toBe(401);
+    });
   });
 });
 

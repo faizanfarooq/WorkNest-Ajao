@@ -10,6 +10,8 @@ const UserSchema = new Schema(
     role: { type: String, enum: ROLES, required: true },
     companyId: { type: Schema.Types.ObjectId, ref: 'Company' },
     googleId: { type: String, index: { unique: true, sparse: true } },
+    // Google profile photo, refreshed on each Google sign-in.
+    avatarUrl: String,
     // Missing on accounts created before verification existed; those count as verified.
     emailVerified: Boolean,
     emailVerifyHash: { type: String, select: false },

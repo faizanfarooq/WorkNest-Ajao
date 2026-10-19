@@ -117,13 +117,17 @@ function AccountMenu() {
   return (
     <div className="relative" ref={ref}>
       <button onClick={() => setOpen((o) => !o)} className="flex items-center gap-2 rounded-full p-0.5 hover:ring-2 hover:ring-slate-200" aria-label="Account menu">
-        <Avatar name={user.name} size="sm" />
+        <Avatar name={user.name} src={user.avatarUrl ?? undefined} size="sm" />
       </button>
       {open && (
         <div className="absolute right-0 z-40 mt-2 w-60 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
-          <div className="border-b border-slate-100 px-4 py-3">
-            <p className="truncate text-sm font-semibold">{user.name}</p>
-            <p className="truncate text-xs text-slate-500">{user.company?.name ?? user.email}</p>
+          <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3">
+            <Avatar name={user.name} src={user.avatarUrl ?? undefined} size="md" />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold">{user.name}</p>
+              <p className="truncate text-xs text-slate-500">{user.email}</p>
+              {user.company && <p className="truncate text-xs text-slate-500">{user.company.name}</p>}
+            </div>
           </div>
           {items.map(([to, label, icon]) => (
             <Link key={to} to={to} onClick={() => setOpen(false)} className="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">

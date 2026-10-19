@@ -2,7 +2,6 @@ import { Router, type Request, type Response } from 'express';
 import bcrypt from 'bcryptjs';
 import crypto from 'node:crypto';
 import rateLimit from 'express-rate-limit';
-import { OAuth2Client } from 'google-auth-library';
 import {
   ChangePasswordSchema,
   ForgotPasswordSchema,
@@ -16,6 +15,7 @@ import {
   type RegisterInput,
 } from '../../../shared/schemas.ts';
 import { env, isProd } from '../../config/env.ts';
+import { verifyGoogleIdToken } from '../../lib/firebase.ts';
 import { HttpError, badRequest, conflict, unauthorized, validate } from '../../lib/http.ts';
 import { sendMail } from '../../lib/mailer.ts';
 import { auth, requireAuth, signAccessToken } from '../../middleware/auth.ts';
@@ -58,6 +58,7 @@ async function toPublicUser(user: UserDoc) {
     name: user.name,
     email: user.email,
     role: user.role,
+    avatarUrl: user.avatarUrl ?? null,
     // Only reported as unverified while verification is enforced; the frontend shows its banner off this.
     emailVerified: !env().REQUIRE_EMAIL_VERIFICATION || user.emailVerified !== false,
     company: company ? { id: String(company._id), name: company.name, slug: company.slug, logoUrl: company.logoUrl } : null,
@@ -108,6 +109,7 @@ interface NewAccount {
   companyName?: string;
   passwordHash?: string;
   googleId?: string;
+  avatarUrl?: string;
   emailVerified: boolean;
 }
 
@@ -151,42 +153,27 @@ router.post('/register', authLimiter, validate(RegisterSchema), async (req, res)
   res.status(201).json(await startSession(req, res, user));
 });
 
-let googleClient: OAuth2Client | undefined;
-
-/** Checks the ID token's signature, expiry and audience against Google's public keys. */
-async function verifyGoogleCredential(credential: string, clientId: string) {
-  googleClient ??= new OAuth2Client();
-  const ticket = await googleClient.verifyIdToken({ idToken: credential, audience: clientId }).catch(() => null);
-  const payload = ticket?.getPayload();
-  if (!payload?.sub || !payload.email) throw unauthorized('Google sign-in failed. Please try again.');
-  if (!payload.email_verified) throw badRequest('Your Google account email is not verified');
-  return { googleId: payload.sub, email: payload.email.toLowerCase(), name: payload.name?.trim() };
-}
-
-router.get('/providers', (_req, res) => {
-  res.json({ googleClientId: env().GOOGLE_CLIENT_ID || null });
-});
-
+/** `credential` is a Firebase ID token from the Google popup, verified server-side with firebase-admin. */
 router.post('/google', authLimiter, validate(GoogleAuthSchema), async (req, res) => {
-  const clientId = env().GOOGLE_CLIENT_ID;
-  if (!clientId) throw badRequest('Google sign-in is not set up on this server');
   const input = req.body as GoogleAuthInput;
-  const google = await verifyGoogleCredential(input.credential, clientId);
+  const google = await verifyGoogleIdToken(input.credential);
 
-  const existing: UserDoc | null = await UserModel.findOne({ $or: [{ googleId: google.googleId }, { email: google.email }] });
+  const existing: UserDoc | null = await UserModel.findOne({ $or: [{ googleId: google.googleId }, { email: google.email }] }).select('+passwordHash');
   if (existing) {
     // Google has proven who owns this address. If the account was never verified, whoever set its
     // password never proved they own the email, so drop that password and its sessions.
+    const passwordReset = existing.emailVerified === false && !!existing.passwordHash;
     if (existing.emailVerified === false) {
       existing.set('passwordHash', undefined);
       await RefreshTokenModel.deleteMany({ userId: existing._id });
     }
     existing.googleId ??= google.googleId;
+    if (google.picture) existing.avatarUrl = google.picture;
     existing.emailVerified = true;
     existing.set({ emailVerifyHash: undefined, emailVerifyExpires: undefined });
     existing.lastLoginAt = new Date();
     await existing.save();
-    return res.json(await startSession(req, res, existing));
+    return res.json({ ...(await startSession(req, res, existing)), passwordReset });
   }
 
   if (!input.role) {
@@ -201,6 +188,7 @@ router.post('/google', authLimiter, validate(GoogleAuthSchema), async (req, res)
     role: input.role,
     companyName: input.companyName,
     googleId: google.googleId,
+    avatarUrl: google.picture,
     emailVerified: true,
   });
   res.status(201).json(await startSession(req, res, user));

@@ -11,8 +11,8 @@ const EnvSchema = z.object({
   // Off until real email delivery (RESEND_API_KEY) is set up. When on, new password sign-ups get a
   // verification link and can't apply to or publish internships until they click it.
   REQUIRE_EMAIL_VERIFICATION: z.stringbool().default(false),
-  // OAuth client ID from Google Cloud Console. Without it the "Continue with Google" button is hidden.
-  GOOGLE_CLIENT_ID: z.string().optional(),
+  // Google sign-in via Firebase. The project ID is public; ID tokens are verified against Google's public keys.
+  FIREBASE_PROJECT_ID: z.string().optional(),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

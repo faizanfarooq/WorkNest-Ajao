@@ -9,6 +9,7 @@ import {
   ApplySchema,
   ChangePasswordSchema,
   CompanySchema,
+  GoogleAuthSchema,
   InternshipQuerySchema,
   InternshipSchema,
   InternshipStatusSchema,
@@ -270,7 +271,7 @@ function publicUser(u: Row) {
     name: u.name,
     email: u.email,
     role: u.role,
-    avatarUrl: null,
+    avatarUrl: u.avatarUrl ?? null,
     company: c ? { id: c._id, name: c.name, slug: c.slug, logoUrl: c.logoUrl } : null,
   };
 }
@@ -396,21 +397,64 @@ export async function getResume(fileId: string) {
 
 // ---------- Auth ----------
 
-route('POST', '/auth/register', async ({ body }) => {
-  const input = parse(RegisterSchema, body);
-  if (db!.users.some((u) => u.email === input.email)) throw conflict('An account with this email already exists');
-  const user: Row = { _id: newId(), name: input.name, email: input.email, role: input.role, passwordHash: await hash(input.password), createdAt: now() };
-  if (input.role === 'employer') {
-    let slug = companySlug(input.companyName) || 'company';
-    for (let n = 2; db!.companies.some((c) => c.slug === slug); n++) slug = `${companySlug(input.companyName)}-${n}`;
-    const company = { _id: newId(), name: input.companyName, slug, tagline: '', about: '', website: '', logoUrl: '', city: '', industry: '', size: '1-10', ownerId: user._id, members: [user._id], verified: false, createdAt: now() };
+/** Adds the user plus their company (employers) or empty profile (students). */
+function createAccount(user: Row, companyName?: string) {
+  if (user.role === 'employer') {
+    const name = companyName!;
+    let slug = companySlug(name) || 'company';
+    for (let n = 2; db!.companies.some((c) => c.slug === slug); n++) slug = `${companySlug(name)}-${n}`;
+    const company = { _id: newId(), name, slug, tagline: '', about: '', website: '', logoUrl: '', city: '', industry: '', size: '1-10', ownerId: user._id, members: [user._id], verified: false, createdAt: now() };
     db!.companies.push(company);
     user.companyId = company._id;
   } else {
     profileOf(user._id);
   }
   db!.users.push(user);
-  return startSession(user);
+  return user;
+}
+
+route('POST', '/auth/register', async ({ body }) => {
+  const input = parse(RegisterSchema, body);
+  if (db!.users.some((u) => u.email === input.email)) throw conflict('An account with this email already exists');
+  const user: Row = { _id: newId(), name: input.name, email: input.email, role: input.role, passwordHash: await hash(input.password), createdAt: now() };
+  return startSession(createAccount(user, input.role === 'employer' ? input.companyName : undefined));
+});
+
+/**
+ * Google sign-in for the static demo. The sign-in itself is real (Firebase's Google popup), but with no
+ * server there is nothing to verify the token's signature, so this only reads its claims. That is fine
+ * here: demo data lives in this visitor's own browser and grants access to nothing shared.
+ * The real app verifies the token server-side with firebase-admin (server/lib/firebase.ts).
+ */
+route('POST', '/auth/google', ({ body }) => {
+  const input = parse(GoogleAuthSchema, body);
+  let claims: Record<string, any>;
+  try {
+    const part = input.credential.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    claims = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(part), (c) => c.charCodeAt(0))));
+  } catch {
+    throw unauthorized('Google sign-in could not be read. Please try again.');
+  }
+  const googleId = claims.firebase?.identities?.['google.com']?.[0];
+  if (claims.aud !== import.meta.env.VITE_FIREBASE_PROJECT_ID || claims.exp * 1000 < Date.now() || typeof googleId !== 'string') {
+    throw unauthorized('Google sign-in could not be verified. Please try again.');
+  }
+  if (!claims.email || !claims.email_verified) throw badRequest('Your Google account email is not verified');
+  const email = String(claims.email).toLowerCase();
+
+  const existing = db!.users.find((u) => u.googleId === googleId) ?? db!.users.find((u) => u.email === email);
+  if (existing) {
+    existing.googleId ??= googleId;
+    if (claims.picture) existing.avatarUrl = claims.picture;
+    return startSession(existing);
+  }
+  if (!input.role) throw new ApiError(404, 'There is no WorkNest account for this Google email yet. Create one first.');
+  if (input.role === 'employer' && (input.companyName ?? '').length < 2) {
+    throw new ApiError(400, 'Validation failed', { companyName: ['Enter your company name'] });
+  }
+  const name = (String(claims.name ?? '').trim() || email.split('@')[0]).slice(0, 80);
+  const user: Row = { _id: newId(), name, email, role: input.role, googleId, avatarUrl: claims.picture, createdAt: now() };
+  return startSession(createAccount(user, input.companyName));
 });
 
 route('POST', '/auth/login', async ({ body }) => {
@@ -443,6 +487,7 @@ route('POST', '/auth/reset-password', () => {
 route('POST', '/auth/change-password', async ({ body }) => {
   const { user } = session();
   const input = parse(ChangePasswordSchema, body);
+  if (!user.passwordHash) throw badRequest('Your account uses Google sign-in, so it has no password to change.');
   if (user.passwordHash !== (await hash(input.currentPassword))) throw badRequest('Current password is incorrect');
   user.passwordHash = await hash(input.newPassword);
   return startSession(user);

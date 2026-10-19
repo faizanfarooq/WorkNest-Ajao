@@ -1,6 +1,6 @@
 // Exercises the in-browser demo backend (GitHub Pages build) in Node, with browser storage stand-ins.
 import 'fake-indexeddb/auto';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const store = new Map<string, string>();
 Object.assign(globalThis, {
@@ -130,5 +130,55 @@ describe('demo backend', () => {
   it('persists across reloads', async () => {
     await login('student@worknest.test');
     expect(store.get('worknest-demo')).toContain('Ayesha');
+  });
+});
+
+describe('demo google sign-in', () => {
+  // Shaped like a Firebase ID token. The demo can't check signatures (no server), only the claims.
+  const b64 = (o: object) => Buffer.from(JSON.stringify(o)).toString('base64url');
+  const token = (claims: Record<string, unknown> = {}) =>
+    [b64({ alg: 'RS256' }), b64({
+      aud: 'demo-project',
+      exp: Math.floor(Date.now() / 1000) + 3600,
+      email: 'new@gmail.test',
+      email_verified: true,
+      name: 'New Person',
+      picture: 'https://lh3.googleusercontent.com/a/new',
+      firebase: { sign_in_provider: 'google.com', identities: { 'google.com': ['g-new'] } },
+      ...claims,
+    }), 'sig'].join('.');
+
+  beforeEach(() => {
+    vi.stubEnv('VITE_FIREBASE_PROJECT_ID', 'demo-project');
+    return () => vi.unstubAllEnvs();
+  });
+
+  it('signs up from the sign-up page only, then signs in', async () => {
+    await expectStatus(call('POST', '/auth/google', { credential: token() }), 404);
+
+    const res = await call('POST', '/auth/google', { credential: token(), role: 'student' });
+    expect(res.user).toMatchObject({ name: 'New Person', email: 'new@gmail.test', role: 'student', avatarUrl: 'https://lh3.googleusercontent.com/a/new' });
+    expect((await call('GET', '/profile/me')).profile.name).toBe('New Person');
+
+    await call('POST', '/auth/logout');
+    const again = await call('POST', '/auth/google', { credential: token() });
+    expect(again.user.role).toBe('student');
+    expect((await call('POST', '/auth/refresh')).user.email).toBe('new@gmail.test');
+  });
+
+  it('creates employers with a company and links existing demo accounts', async () => {
+    await expectStatus(call('POST', '/auth/google', { credential: token(), role: 'employer' }), 400);
+    const e = await call('POST', '/auth/google', { credential: token(), role: 'employer', companyName: 'Nimbus Labs' });
+    expect(e.user.company.name).toBe('Nimbus Labs');
+
+    const s = await call('POST', '/auth/google', { credential: token({ email: 'student@worknest.test', firebase: { identities: { 'google.com': ['g-s'] } } }) });
+    expect(s.user.email).toBe('student@worknest.test');
+  });
+
+  it('rejects tokens for another project, expired, or unverified', async () => {
+    await expectStatus(call('POST', '/auth/google', { credential: token({ aud: 'someone-else' }), role: 'student' }), 401);
+    await expectStatus(call('POST', '/auth/google', { credential: token({ exp: 1 }), role: 'student' }), 401);
+    await expectStatus(call('POST', '/auth/google', { credential: token({ email_verified: false }), role: 'student' }), 400);
+    await expectStatus(call('POST', '/auth/google', { credential: 'not-a-token-at-all' }), 401);
   });
 });

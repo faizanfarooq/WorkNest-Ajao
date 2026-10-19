@@ -1,5 +1,3 @@
-import { IS_DEMO } from './api';
-
 // Public web-app config from the Firebase console. These identify the project; they are not secrets.
 const config = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY as string | undefined,
@@ -8,10 +6,10 @@ const config = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID as string | undefined,
 };
 
-/** The demo build has no server to verify tokens, so Google sign-in only exists in the real app. */
-export const GOOGLE_ENABLED = !IS_DEMO && !!(config.apiKey && config.authDomain && config.projectId);
+/** Shown whenever the Firebase config is present, including the static demo (which handles it in-browser). */
+export const GOOGLE_ENABLED = !!(config.apiKey && config.authDomain && config.projectId);
 
-if (import.meta.env.DEV && !IS_DEMO && !GOOGLE_ENABLED && Object.values(config).some(Boolean)) {
+if (import.meta.env.DEV && !GOOGLE_ENABLED && Object.values(config).some(Boolean)) {
   const missing = Object.entries(config).filter(([, v]) => !v).map(([k]) => k);
   console.warn(`[firebase] Google sign-in is hidden: the Firebase config in .env is missing ${missing.join(', ')}. Restart the dev server after editing .env.`);
 }

@@ -27,6 +27,12 @@ jobs:
       - run: npm run build:demo
         env:
           VITE_BASE: /${{ github.event.repository.name }}/
+          # Firebase web-app config for Google sign-in. These are public identifiers (they ship in the
+          # site's JavaScript anyway), not secrets. Repository variables with the same names override them.
+          VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY || 'AIzaSyCm123OmZI8kLTUgSByP90GHcuPD4Rm_II' }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN || 'worknest-47e52.firebaseapp.com' }}
+          VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID || 'worknest-47e52' }}
+          VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID || '1:360548484207:web:9655d765ecd23ed901f99a' }}
       # Pages has no SPA fallback: serving index.html as the 404 page makes deep links work.
       - run: cp dist/index.html dist/404.html && touch dist/.nojekyll
       - uses: actions/upload-pages-artifact@v3

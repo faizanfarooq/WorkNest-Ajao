@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Building2, Globe, MapPin, Search, Users } from 'lucide-react';
+import { ArrowLeft, Building2, Globe, MapPin, Users } from 'lucide-react';
+import { CompaniesHero } from '../components/CompaniesHero';
+import { EmployersHero } from '../components/EmployersHero';
 import { InternshipCard, InternshipDetail } from '../components/internships';
-import { Avatar, ButtonLink, Card, CompanyName, EmptyState, ErrorState, PageHeader, PageSpinner } from '../components/ui';
+import { Avatar, ButtonLink, Card, CompanyName, EmptyState, ErrorState, PageSpinner } from '../components/ui';
 import { ApiError, api } from '../lib/api';
 import { formatDate } from '../lib/format';
 import type { Company, Internship } from '../lib/types';
@@ -33,25 +35,58 @@ export function InternshipPage() {
 
 export function CompaniesPage() {
   const [q, setQ] = useState('');
+  const [industry, setIndustry] = useState('All');
+  const results = useRef<HTMLDivElement>(null);
+  // Unfiltered list for the hero (count, industries, hiring strip); the grid below follows the search.
+  const all = useQuery({ queryKey: ['companies'], queryFn: () => api<{ companies: Company[] }>('/companies') });
   const list = useQuery({
     queryKey: ['companies', q],
     queryFn: () => api<{ companies: Company[] }>('/companies', { query: { q } }),
     placeholderData: (prev) => prev,
   });
+  const shown = (list.data?.companies ?? []).filter((c) => industry === 'All' || c.industry?.trim() === industry);
+
+  const showResults = () =>
+    results.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10">
-      <PageHeader title="Companies" subtitle="Startups and teams hiring interns on WorkNest." />
-      <label className="mb-6 flex max-w-md items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 shadow-sm focus-within:border-brand-600 focus-within:ring-2 focus-within:ring-brand-600/30">
-        <Search className="size-4 text-slate-400" />
-        <span className="sr-only">Search companies</span>
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search companies" className="h-10 w-full bg-transparent text-sm outline-none" />
-      </label>
+    <>
+    <CompaniesHero
+      companies={all.data?.companies ?? []}
+      industry={industry}
+      onSearch={(query) => {
+        setQ(query);
+        showResults();
+      }}
+      onIndustryChange={(name) => {
+        setIndustry(name);
+        showResults();
+      }}
+    />
+
+    <div ref={results} className="mx-auto max-w-7xl scroll-mt-24 px-4 py-10 sm:px-6">
+      <div className="mb-6 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+        <h2 className="text-2xl font-extrabold tracking-tight">
+          {q ? `Companies matching “${q}”` : 'All companies'}
+          {industry !== 'All' && <span className="text-slate-500"> · {industry}</span>}
+        </h2>
+        {(q || industry !== 'All') && (
+          <button onClick={() => { setQ(''); setIndustry('All'); }} className="text-sm font-semibold text-brand-700 hover:underline">
+            Clear filters
+          </button>
+        )}
+      </div>
       {list.isLoading && <PageSpinner />}
       {list.isError && <ErrorState error={list.error} retry={() => list.refetch()} />}
-      {list.data?.companies.length === 0 && <EmptyState icon={<Building2 className="size-6" />} title="No companies found" />}
+      {list.isSuccess && shown.length === 0 && (
+        <EmptyState
+          icon={<Building2 className="size-6" />}
+          title={q || industry !== 'All' ? 'No companies found' : 'No companies yet'}
+          body={q || industry !== 'All' ? 'Try another search or industry.' : 'Companies appear here once employers sign up.'}
+        />
+      )}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {list.data?.companies.map((c) => (
+        {shown.map((c) => (
           <Link key={c._id} to={`/companies/${c.slug}`} className="flex flex-col rounded-xl border border-slate-200 bg-white p-5 transition-shadow hover:border-slate-300 hover:shadow-sm">
             <div className="flex items-center gap-3">
               <Avatar name={c.name} src={c.logoUrl} square />
@@ -66,7 +101,12 @@ export function CompaniesPage() {
         ))}
       </div>
     </div>
+    </>
   );
+}
+
+export function EmployersPage() {
+  return <EmployersHero />;
 }
 
 export function CompanyPage() {

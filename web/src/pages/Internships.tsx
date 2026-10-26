@@ -1,12 +1,12 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { ChevronLeft, ChevronRight, MapPin, Search, SearchX, X } from 'lucide-react';
-import { CITIES } from '@shared/schemas';
+import { ChevronLeft, ChevronRight, SearchX, X } from 'lucide-react';
 import { InternshipCard, InternshipDetail } from '../components/internships';
+import { InternshipsHero, type HeroChip } from '../components/InternshipsHero';
 import { Button, Card, EmptyState, ErrorState, Spinner, cx } from '../components/ui';
 import { api } from '../lib/api';
-import type { Internship, Paged } from '../lib/types';
+import type { Company, Internship, Paged } from '../lib/types';
 
 function useMediaQuery(query: string) {
   const [matches, setMatches] = useState(() => window.matchMedia(query).matches);
@@ -28,8 +28,8 @@ function Pill({ active, onClick, children }: { active: boolean; onClick: () => v
       onClick={onClick}
       aria-pressed={active}
       className={cx(
-        'rounded-full border px-3.5 py-1.5 text-sm font-semibold transition-colors',
-        active ? 'border-brand-700 bg-brand-700 text-white' : 'border-slate-300 bg-white text-slate-700 hover:border-slate-400',
+        'rounded-full px-4 py-2 text-sm font-semibold transition-colors',
+        active ? 'bg-brand-700 text-white hover:bg-brand-800' : 'bg-slate-200/70 text-ink hover:bg-slate-300/70',
       )}
     >
       {children}
@@ -74,39 +74,55 @@ export default function InternshipsPage() {
     enabled: !!activeId,
   });
 
+  // Hero stats and phone mockup: the unfiltered totals and newest roles.
+  const overview = useQuery({
+    queryKey: ['internships', 'overview'],
+    queryFn: () => api<Paged<Internship>>('/internships', { query: { limit: 3 } }),
+  });
+  const companies = useQuery({ queryKey: ['companies'], queryFn: () => api<{ companies: Company[] }>('/companies') });
+
+  const results = useRef<HTMLDivElement>(null);
+  const showResults = () =>
+    results.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+
   const onSearch = (e: FormEvent) => {
     e.preventDefault();
     update({ q: keywords.trim() || null, city: city || null });
+    showResults();
   };
+
+  // Hero chips are shortcuts for the same URL filters as the pills below.
+  const chip = (label: string, key: 'mode' | 'paid' | 'skill', value: string): HeroChip => ({
+    label,
+    active: filters[key] === value,
+    onToggle: () => update({ [key]: filters[key] === value ? null : value }),
+  });
+  const chips = [
+    chip('Remote', 'mode', 'remote'),
+    chip('Paid', 'paid', 'true'),
+    chip('Hybrid', 'mode', 'hybrid'),
+    chip('Figma', 'skill', 'Figma'),
+    chip('Node.js', 'skill', 'Node.js'),
+    chip('PostgreSQL', 'skill', 'PostgreSQL'),
+  ];
 
   const activeFilterCount = ['mode', 'paid', 'skill', 'company'].filter((k) => params.get(k)).length;
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
-      <form onSubmit={onSearch} className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm sm:flex-row">
-        <label className="flex flex-1 items-center gap-2 px-3">
-          <Search className="size-5 shrink-0 text-slate-400" />
-          <span className="sr-only">Keywords</span>
-          <input
-            value={keywords}
-            onChange={(e) => setKeywords(e.target.value)}
-            placeholder="Role, skill or keyword"
-            className="h-11 w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
-          />
-        </label>
-        <div className="hidden w-px bg-slate-200 sm:block" />
-        <label className="flex items-center gap-2 px-3 sm:w-56">
-          <MapPin className="size-5 shrink-0 text-slate-400" />
-          <span className="sr-only">City</span>
-          <select value={city} onChange={(e) => setCity(e.target.value)} className="h-11 w-full bg-transparent text-sm outline-none">
-            <option value="">All cities</option>
-            {CITIES.map((c) => <option key={c}>{c}</option>)}
-          </select>
-        </label>
-        <Button type="submit" size="lg" className="sm:w-32">Search</Button>
-      </form>
+    <>
+    <InternshipsHero
+      keywords={keywords}
+      city={city}
+      onKeywords={setKeywords}
+      onCity={setCity}
+      onSearch={onSearch}
+      chips={chips}
+      stats={{ internships: overview.data?.total, companies: companies.data?.companies.length }}
+      latest={overview.data?.items ?? []}
+    />
 
-      <div className="mt-4 flex flex-wrap items-center gap-2">
+    <div ref={results} className="mx-auto max-w-7xl scroll-mt-20 px-4 py-6 sm:px-6">
+      <div className="flex flex-wrap items-center gap-2">
         <Pill active={filters.mode === 'remote'} onClick={() => update({ mode: filters.mode === 'remote' ? null : 'remote' })}>Remote</Pill>
         <Pill active={filters.mode === 'hybrid'} onClick={() => update({ mode: filters.mode === 'hybrid' ? null : 'hybrid' })}>Hybrid</Pill>
         <Pill active={filters.mode === 'onsite'} onClick={() => update({ mode: filters.mode === 'onsite' ? null : 'onsite' })}>On-site</Pill>
@@ -190,5 +206,6 @@ export default function InternshipsPage() {
         )}
       </div>
     </div>
+    </>
   );
 }

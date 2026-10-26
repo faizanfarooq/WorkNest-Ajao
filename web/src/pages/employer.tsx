@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Controller, useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
-import { ArrowLeft, Briefcase, Eye, FileText, Link2, MessageSquare, MoreHorizontal, Plus, Trash2, Users } from 'lucide-react';
+import { ArrowLeft, Briefcase, CalendarDays, ClipboardList, Eye, FileText, Link2, MessageSquare, MoreHorizontal, Plus, Timer, Trash2, Users } from 'lucide-react';
 import {
   CITIES,
   COMPANY_SIZES,
@@ -34,9 +34,10 @@ import {
 } from '../components/ui';
 import { ApiError, api, openProtectedFile } from '../lib/api';
 import { useAuth } from '../lib/auth';
-import { STATUS_META, formatDate, formatLocation, formatPay, timeAgo } from '../lib/format';
+import { MODE_LABEL, STATUS_META, deadlineLabel, formatDate, formatDuration, formatLocation, formatPay, timeAgo } from '../lib/format';
 import { applyServerErrors, toastError } from '../lib/forms';
 import type { Application, Company, Internship } from '../lib/types';
+import { useCompanyApplications } from './employerApplicants';
 import { NotFound } from './Public';
 import { StatusBadge } from './student';
 
@@ -66,34 +67,57 @@ export function EmployerDashboard() {
   });
 
   const items = q.data?.items ?? [];
-  const sum = (s: ApplicationStatus) => items.reduce((n, i) => n + (i.statusCounts?.[s] ?? 0), 0);
-  const totals = [
-    { label: 'Open postings', value: items.filter((i) => i.status === 'open').length },
-    { label: 'New applicants', value: sum('applied') },
-    { label: 'In interview', value: sum('interview') },
-    { label: 'Hired', value: sum('hired') },
+  const { applications } = useCompanyApplications();
+
+  const DAY = 86_400_000;
+  const now = Date.now();
+  const weekAgo = now - 7 * DAY;
+  const closingSoon = items.filter((i) => i.acceptingApplications && i.deadline && new Date(i.deadline).getTime() - now < 7 * DAY).length;
+  const active = items.filter((i) => i.status === 'open' && i.acceptingApplications).length;
+  const thisWeek = applications.filter((a) => new Date(a.createdAt).getTime() > weekAgo).length;
+  const count = (s: ApplicationStatus) => applications.filter((a) => a.status === s).length;
+  // Days from application to the "hired" step, averaged over hires.
+  const hireDays = applications
+    .filter((a) => a.status === 'hired')
+    .map((a) => {
+      const hired = [...a.history].reverse().find((h) => h.status === 'hired');
+      return hired ? (new Date(hired.at).getTime() - new Date(a.createdAt).getTime()) / DAY : null;
+    })
+    .filter((d): d is number => d !== null);
+  const avgHire = hireDays.length ? Math.max(1, Math.round(hireDays.reduce((x, y) => x + y, 0) / hireDays.length)) : null;
+
+  const stats = [
+    { icon: ClipboardList, tint: 'bg-indigo-100 text-indigo-700', label: 'Active listings', value: active, note: closingSoon ? `${closingSoon} closing soon` : `${items.length} in total` },
+    { icon: Users, tint: 'bg-brand-100 text-brand-800', label: 'Total applicants', value: applications.length, note: `▲ ${thisWeek} this week` },
+    { icon: CalendarDays, tint: 'bg-amber-100 text-amber-700', label: 'In interview', value: count('interview'), note: `${count('offered')} offer${count('offered') === 1 ? '' : 's'} out` },
+    { icon: Timer, tint: 'bg-pink-100 text-pink-700', label: 'Avg. days to hire', value: avgHire, note: hireDays.length ? `Across ${hireDays.length} hire${hireDays.length === 1 ? '' : 's'}` : 'No hires yet' },
   ];
 
-  return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
-      <PageHeader
-        title={user?.company?.name ?? 'Dashboard'}
-        subtitle="Manage your internship postings and applicants."
-        actions={
-          <>
-            {user?.company && <ButtonLink to={`/companies/${user.company.slug}`} variant="secondary">View public page</ButtonLink>}
-            <ButtonLink to="/employer/internships/new"><Plus className="size-4" /> Post internship</ButtonLink>
-          </>
-        }
-      />
+  // Applicants per day over the last 7 days, ending today.
+  const today = new Date();
+  const week = Array.from({ length: 7 }, (_, n) => {
+    const day = new Date(today.getFullYear(), today.getMonth(), today.getDate() - (6 - n));
+    return {
+      label: day.toLocaleDateString('en-GB', { weekday: 'short' }),
+      value: applications.filter((a) => new Date(a.createdAt).toDateString() === day.toDateString()).length,
+    };
+  });
 
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {totals.map((t) => (
-          <Card key={t.label} className="p-4">
-            <p className="text-2xl font-extrabold">{t.value}</p>
-            <p className="text-sm text-slate-500">{t.label}</p>
-          </Card>
-        ))}
+  // Applicants per view, so listings compare against the best performer.
+  const rate = (i: Internship) => (i.viewCount ? i.applicationCount / i.viewCount : 0);
+  const bestRate = Math.max(...items.map(rate), 0);
+
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-8 motion-safe:animate-fade-up sm:px-6 sm:py-10">
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">Welcome back, {user?.company?.name ?? 'there'} 👋</h1>
+          <p className="mt-1 text-slate-500">Here's how your internships are doing this week.</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {user?.company && <ButtonLink to={`/companies/${user.company.slug}`} variant="secondary">View public page</ButtonLink>}
+          <ButtonLink to="/employer/internships/new"><Plus className="size-4" /> Post an internship</ButtonLink>
+        </div>
       </div>
 
       {q.isLoading ? (
@@ -110,41 +134,175 @@ export function EmployerDashboard() {
           />
         </Card>
       ) : (
-        <Card className="divide-y divide-slate-100">
-          {items.map((i) => {
-            const total = Object.values(i.statusCounts ?? {}).reduce((a, b) => a + (b ?? 0), 0);
-            const fresh = i.statusCounts?.applied ?? 0;
-            return (
-              <div key={i._id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Link to={`/employer/internships/${i._id}/applicants`} className="truncate font-bold hover:underline">{i.title}</Link>
-                    <Badge tone={i.status === 'open' ? 'green' : i.status === 'draft' ? 'amber' : 'slate'}>
-                      {i.status === 'open' ? (i.acceptingApplications ? 'Live' : 'Deadline passed') : i.status === 'draft' ? 'Draft' : 'Closed'}
-                    </Badge>
-                  </div>
-                  <p className="mt-0.5 text-sm text-slate-500">
-                    {formatLocation(i)} · {formatPay(i)} · {i.publishedAt ? `Posted ${formatDate(i.publishedAt)}` : `Created ${formatDate(i.createdAt)}`}
-                  </p>
-                </div>
-                <div className="flex items-center gap-5 text-sm">
-                  <span className="flex items-center gap-1.5 text-slate-500" title="Views"><Eye className="size-4" />{i.viewCount ?? 0}</span>
-                  <Link to={`/employer/internships/${i._id}/applicants`} className="flex items-center gap-1.5 font-semibold text-ink hover:text-brand-800">
-                    <Users className="size-4" />{total}
-                    {fresh > 0 && <Badge tone="blue">{fresh} new</Badge>}
-                  </Link>
-                  <RowMenu
-                    internship={i}
-                    hasApplicants={total > 0}
-                    onStatus={(status) => setStatus.mutate({ id: i._id, status })}
-                    onDelete={() => confirm('Delete this posting permanently?') && remove.mutate(i._id)}
-                  />
-                </div>
-              </div>
-            );
-          })}
-        </Card>
+        <>
+          <div className="mb-4 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+            {stats.map((st) => (
+              <Card key={st.label} className="p-5">
+                <p className="flex items-center gap-2 text-sm font-semibold text-slate-500">
+                  <span className={cx('grid size-8 place-items-center rounded-lg', st.tint)}><st.icon className="size-4" /></span>
+                  {st.label}
+                </p>
+                <p className="mt-2.5 text-3xl font-extrabold tracking-tight">{st.value === null ? '—' : <CountUp to={st.value} />}</p>
+                <p className="mt-0.5 text-xs font-semibold text-brand-700">{st.note}</p>
+              </Card>
+            ))}
+          </div>
+
+          <div className="mb-4 grid gap-4 lg:grid-cols-[1.6fr_1fr]">
+            <Card className="p-5">
+              <h2 className="mb-3.5 flex items-center justify-between font-bold">
+                Applicants this week
+                <Link to="/employer/applicants" className="text-xs font-semibold text-brand-700 hover:underline">View all →</Link>
+              </h2>
+              <WeekChart days={week} />
+            </Card>
+            <Card className="p-5">
+              <h2 className="mb-2 font-bold">Recent applicants</h2>
+              {applications.length === 0 ? (
+                <p className="py-8 text-center text-sm text-slate-500">No applicants yet. They'll appear here as students apply.</p>
+              ) : (
+                <ul className="divide-y divide-slate-100">
+                  {applications.slice(0, 4).map((a) => (
+                    <li key={a._id}>
+                      <Link to={`/employer/applicants?app=${a._id}`} className="flex items-center gap-3 py-2.5 hover:opacity-80">
+                        <Avatar name={a.student?.name ?? '?'} size="sm" />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-bold">{a.student?.name}</p>
+                          <p className="truncate text-xs text-slate-500">{a.posting.title} · {timeAgo(a.createdAt)}</p>
+                        </div>
+                        <StatusBadge status={a.status} />
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+          </div>
+
+          <Card className="overflow-hidden">
+            <h2 className="px-5 pt-5 font-bold">Your listings</h2>
+            <div className="overflow-x-auto">
+              <table className="mt-2 w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 text-left text-xs text-slate-500">
+                    <th className="px-5 py-2.5 font-semibold">Role</th>
+                    <th className="px-3 py-2.5 font-semibold">Applicants</th>
+                    <th className="hidden px-3 py-2.5 font-semibold sm:table-cell">Views → apply</th>
+                    <th className="px-3 py-2.5 font-semibold">Status</th>
+                    <th className="w-12" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((i) => {
+                    const total = Object.values(i.statusCounts ?? {}).reduce((a, b) => a + (b ?? 0), 0);
+                    const fresh = i.statusCounts?.applied ?? 0;
+                    const deadline = deadlineLabel(i.deadline);
+                    return (
+                      <tr key={i._id} className="border-b border-slate-100 transition-colors last:border-0 hover:bg-slate-50/70">
+                        <td className="px-5 py-3.5">
+                          <Link to={`/employer/internships/${i._id}/applicants`} className="font-bold hover:underline">{i.title}</Link>
+                          <p className="text-xs text-slate-500">{formatLocation(i)} · {formatPay(i)}</p>
+                        </td>
+                        <td className="px-3 py-3.5 font-semibold">
+                          <span className="inline-flex items-center gap-1.5">
+                            {total}
+                            {fresh > 0 && <Badge tone="blue">{fresh} new</Badge>}
+                          </span>
+                        </td>
+                        <td className="hidden px-3 py-3.5 sm:table-cell">
+                          {i.status === 'draft' ? (
+                            <span className="text-xs text-slate-500">Not published</span>
+                          ) : (
+                            <>
+                              <div className="h-1.5 w-28 overflow-hidden rounded-full bg-slate-100">
+                                <div className="h-full rounded-full bg-brand-600" style={{ width: `${bestRate ? (rate(i) / bestRate) * 100 : 0}%` }} />
+                              </div>
+                              <p className="mt-1 text-xs text-slate-500">
+                                <Eye className="mr-1 inline size-3.5" />
+                                {i.viewCount ?? 0} views · {(rate(i) * 100).toFixed(1)}%
+                              </p>
+                            </>
+                          )}
+                        </td>
+                        <td className="px-3 py-3.5">
+                          {i.status === 'draft' ? (
+                            <Badge tone="slate">Draft</Badge>
+                          ) : i.status === 'closed' ? (
+                            <Badge tone="slate">Closed</Badge>
+                          ) : !i.acceptingApplications ? (
+                            <Badge tone="slate">Deadline passed</Badge>
+                          ) : deadline?.startsWith('Closes') ? (
+                            <Badge tone="amber">{deadline}</Badge>
+                          ) : (
+                            <Badge tone="green">Live</Badge>
+                          )}
+                        </td>
+                        <td className="pr-3">
+                          <RowMenu
+                            internship={i}
+                            hasApplicants={total > 0}
+                            onStatus={(status) => setStatus.mutate({ id: i._id, status })}
+                            onDelete={() => confirm('Delete this posting permanently?') && remove.mutate(i._id)}
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </>
       )}
+    </div>
+  );
+}
+
+/** Counts up from 0 with an ease-out; jumps straight to the value when motion is reduced. */
+function CountUp({ to }: { to: number }) {
+  const [value, setValue] = useState(0);
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return setValue(to);
+    const start = performance.now();
+    let frame = requestAnimationFrame(function step(t) {
+      const p = Math.min((t - start) / 900, 1);
+      setValue(Math.round(to * (1 - (1 - p) ** 3)));
+      if (p < 1) frame = requestAnimationFrame(step);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [to]);
+  return <>{value}</>;
+}
+
+/** Seven bars that grow in one after another; today's bar is amber. */
+function WeekChart({ days }: { days: { label: string; value: number }[] }) {
+  const [grown, setGrown] = useState(false);
+  useEffect(() => {
+    const id = setTimeout(() => setGrown(true), 80);
+    return () => clearTimeout(id);
+  }, []);
+  const max = Math.max(...days.map((d) => d.value), 1);
+  return (
+    <div className="flex h-48 items-end gap-3 pt-6" role="img" aria-label={days.map((d) => `${d.label}: ${d.value}`).join(', ')}>
+      {days.map((d, n) => {
+        const today = n === days.length - 1;
+        return (
+          <div key={n} className="flex h-full flex-1 flex-col items-center justify-end gap-2">
+            <div
+              className={cx(
+                'relative w-full max-w-11 rounded-t-[10px] rounded-b-[4px] transition-[height] duration-1000 ease-[cubic-bezier(.2,.7,.2,1)] motion-reduce:transition-none',
+                today ? 'bg-linear-to-b from-amber-300 to-amber-500' : 'bg-linear-to-b from-emerald-400 to-brand-600',
+              )}
+              style={{ height: grown ? `${Math.max((d.value / max) * 100, d.value ? 4 : 1.5)}%` : '0%', transitionDelay: `${n * 70}ms` }}
+            >
+              <span className={cx('absolute -top-5 left-1/2 -translate-x-1/2 text-[11px] font-bold transition-opacity delay-700 duration-300', grown ? 'opacity-100' : 'opacity-0')}>
+                {d.value}
+              </span>
+            </div>
+            <span className={cx('text-[11px] font-semibold', today ? 'text-amber-600' : 'text-slate-500')}>{today ? 'Today' : d.label}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -260,15 +418,30 @@ function InternshipForm({ id, initial, wasClosed }: { id?: string; initial: Form
 
   const num = { valueAsNumber: true };
 
+  // The four things students look at first; the bar above the form fills as they're done.
+  const v = form.watch();
+  const steps = [
+    { label: 'Title', done: !!v.title?.trim() },
+    { label: 'Stipend', done: !v.paid || Number(v.payAmount) > 0 },
+    { label: 'Skills', done: v.skills?.length > 0 },
+    { label: 'Description', done: !!v.description?.trim() },
+  ];
+
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-10">
+    <div className="mx-auto max-w-6xl px-4 py-8 motion-safe:animate-fade-up sm:px-6 sm:py-10">
       <Link to="/dashboard" className="mb-5 inline-flex items-center gap-1.5 text-sm font-semibold text-slate-600 hover:text-ink">
         <ArrowLeft className="size-4" /> Dashboard
       </Link>
-      <PageHeader title={id ? 'Edit internship' : 'Post an internship'} subtitle="Clear titles and visible pay get more applicants." />
+      <PageHeader title={id ? 'Edit internship' : 'Post an internship'} subtitle="Fill in the details. The preview updates as you type." />
       {wasClosed && <p className="mb-5 rounded-lg bg-slate-100 px-4 py-3 text-sm">This posting is closed. Saving keeps it closed; reopen it from your dashboard.</p>}
 
+      <div className="grid items-start gap-6 lg:grid-cols-[1.25fr_1fr]">
       <form onSubmit={(e) => { e.preventDefault(); submit('open'); }} className="space-y-6" noValidate>
+        <div className="flex gap-2" role="progressbar" aria-label="Posting essentials" aria-valuemin={0} aria-valuemax={steps.length} aria-valuenow={steps.filter((st) => st.done).length}>
+          {steps.map((st) => (
+            <span key={st.label} title={st.label} className={cx('h-1.5 flex-1 rounded-full transition-colors duration-500', st.done ? 'bg-brand-600' : 'bg-slate-200')} />
+          ))}
+        </div>
         <Card className="space-y-4 p-5 sm:p-6">
           <h2 className="font-bold">The role</h2>
           <Input label="Title" placeholder="e.g. Frontend Engineering Intern (React)" error={errors.title?.message} {...form.register('title')} />
@@ -357,7 +530,52 @@ function InternshipForm({ id, initial, wasClosed }: { id?: string; initial: Form
           <Button type="submit" size="lg" loading={isSubmitting}>{id && initial.status === 'open' ? 'Save changes' : 'Publish internship'}</Button>
         </div>
       </form>
+
+      <PostingPreview values={v} />
+      </div>
     </div>
+  );
+}
+
+/** How students will see the posting, updated live from the form. */
+function PostingPreview({ values: v }: { values: FormValues }) {
+  const { user } = useAuth();
+  const company = user?.company;
+  const weeks = Number(v.durationWeeks);
+  const where = v.mode === 'remote' ? `🌐 Remote${v.city ? ` · ${v.city}` : ''}` : `📍 ${v.city || 'City'} · ${MODE_LABEL[v.mode]}`;
+  const pay = v.paid && Number(v.payAmount) > 0 ? formatPay({ ...v, payAmount: Number(v.payAmount) }) : v.paid ? 'Stipend not set' : 'Unpaid';
+
+  return (
+    <aside className="lg:sticky lg:top-24">
+      <p className="mb-2.5 flex items-center gap-2 text-xs font-bold text-slate-500">
+        <span className="size-2 rounded-full bg-green-500 ring-4 ring-green-100" />
+        Live preview: how students will see it
+      </p>
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_24px_50px_-30px_rgb(15_23_42/0.35)]">
+        <div className="h-24 bg-[radial-gradient(circle_at_80%_20%,#5eead4,transparent_50%),linear-gradient(130deg,#064e3b,#079669)]" />
+        <div className="px-5 pb-5">
+          <div className="-mt-7 inline-block rounded-2xl border-4 border-white">
+            <Avatar name={company?.name ?? 'Company'} src={company?.logoUrl} size="lg" square />
+          </div>
+          <h2 className="mt-2 break-words text-xl font-extrabold">{v.title?.trim() || 'Your internship title'}</h2>
+          <p className="font-semibold text-slate-500">{company?.name}</p>
+          <div className="my-3 flex flex-wrap gap-1.5 text-xs font-semibold">
+            <span className="rounded-full bg-slate-100 px-2.5 py-1">{where}</span>
+            {weeks > 0 && <span className="rounded-full bg-slate-100 px-2.5 py-1">⏳ {formatDuration(weeks)}</span>}
+            <span className="rounded-full bg-amber-100 px-2.5 py-1 text-amber-800">{pay}</span>
+          </div>
+          {v.skills?.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {v.skills.map((s) => <span key={s} className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">{s}</span>)}
+            </div>
+          )}
+          <p className="mt-3 line-clamp-6 min-h-10 whitespace-pre-wrap text-sm leading-relaxed text-slate-600">
+            {v.description?.trim() || 'Your description will appear here.'}
+          </p>
+          <div className="mt-4 rounded-xl bg-ink py-2.5 text-center text-sm font-bold text-white" aria-hidden>Apply with WorkNest profile</div>
+        </div>
+      </div>
+    </aside>
   );
 }
 

@@ -1,0 +1,91 @@
+/* =========================================================
+   WorkNest – Employers hero (neural network version)
+   Fonts (Anton, Plus Jakarta Sans) are loaded in web/index.html.
+   Every rule is scoped under .emp-hero so nothing leaks into other pages.
+   ========================================================= */
+.emp-hero{
+  --navy:#040b1f;--deep:#0a1a45;--lime:#E4F86A;--ink:#0f172a;
+  --grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  position:relative;overflow:hidden;isolation:isolate;min-height:100vh;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+  padding:120px 24px 90px;background:var(--navy);color:#fff;
+  font-family:"Plus Jakarta Sans",system-ui,sans-serif;
+}
+
+/* Visitors: slide up under the 80px transparent header. Signed in: sit below the app header. */
+.emp-hero.under-header{margin-top:-80px;padding-top:200px}
+.emp-hero.in-app{min-height:calc(100vh - 4rem);padding-top:80px}
+
+/* ---- background layers ---- */
+.emp-hero .mesh{position:absolute;inset:0;z-index:-4;overflow:hidden}
+.emp-hero .mesh i{position:absolute;border-radius:50%;filter:blur(90px)}
+.emp-hero .mesh i:nth-child(1){width:720px;height:620px;left:-160px;top:-180px;background:#1e3a8a;animation:emp-m1 18s ease-in-out infinite}
+.emp-hero .mesh i:nth-child(2){width:620px;height:620px;right:-160px;top:10%;background:#1d4ed8;opacity:.6;animation:emp-m2 20s ease-in-out infinite}
+.emp-hero .mesh i:nth-child(3){width:760px;height:420px;left:25%;bottom:-220px;background:#0ea5e9;opacity:.4;animation:emp-m1 24s ease-in-out infinite reverse}
+@keyframes emp-m1{50%{transform:translate(120px,70px) scale(1.1)}}
+@keyframes emp-m2{50%{transform:translate(-110px,60px) scale(.92)}}
+
+.emp-hero .bgphoto{position:absolute;inset:0;z-index:-3;opacity:.55}
+.emp-hero .bgphoto img{animation:emp-kb 26s ease-in-out infinite alternate}
+@keyframes emp-kb{from{transform:scale(1.05)}to{transform:scale(1.2) translate(-2%,-1%)}}
+.emp-hero .shade{position:absolute;inset:0;z-index:-3;background:radial-gradient(ellipse at center,rgba(4,11,31,.25),rgba(4,11,31,.9) 75%)}
+
+/* blue duotone photo */
+.emp-hero .duo{overflow:hidden;background:var(--deep)}
+.emp-hero .duo img{width:100%;height:100%;object-fit:cover;display:block;filter:grayscale(1) contrast(1.2) brightness(.95)}
+.emp-hero .duo::before{content:"";position:absolute;inset:0;z-index:1;background:linear-gradient(135deg,#0b1f6b,#1d4ed8);mix-blend-mode:multiply}
+.emp-hero .duo::after{content:"";position:absolute;inset:0;z-index:1;background:linear-gradient(135deg,#0c4a6e,#38bdf8);mix-blend-mode:screen;opacity:.45}
+
+.emp-hero canvas.neural{position:absolute;inset:0;z-index:-2;width:100%;height:100%}
+
+.emp-hero .grain{position:absolute;inset:-50%;z-index:6;pointer-events:none;background-image:var(--grain);opacity:.12;mix-blend-mode:overlay;animation:emp-grain 1.2s steps(6) infinite}
+@keyframes emp-grain{0%{transform:translate(0,0)}20%{transform:translate(-4%,3%)}40%{transform:translate(3%,-5%)}60%{transform:translate(-6%,-2%)}80%{transform:translate(5%,4%)}100%{transform:translate(0,0)}}
+
+/* ---- content ---- */
+.emp-hero .ai-pill{position:relative;overflow:hidden;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;font-size:13px;font-weight:700;margin-bottom:22px;
+  background:linear-gradient(90deg,rgba(56,189,248,.18),rgba(29,78,216,.25));border:1px solid rgba(56,189,248,.4);color:#bae6fd;animation:emp-fade .8s both}
+.emp-hero .ai-pill::after{content:"";position:absolute;top:0;bottom:0;width:40%;left:-50%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent);animation:emp-sheen 3s 1s infinite}
+@keyframes emp-sheen{to{left:120%}}
+.emp-hero .ai-pill .spark{color:var(--lime)}
+
+.emp-hero h1{font-family:Anton,"Bebas Neue",Oswald,Impact,sans-serif;font-weight:400;line-height:.95;color:var(--lime);font-size:clamp(70px,11.5vw,200px);margin:0}
+.emp-hero h1 .line{display:block;overflow:hidden;white-space:nowrap;padding:0 .03em .02em}
+.emp-hero h1 .in{display:inline-block;animation:emp-rise 1s cubic-bezier(.2,.7,.2,1) both}
+.emp-hero h1 .line:nth-child(2) .in{animation-delay:.12s}
+@keyframes emp-rise{from{transform:translateY(105%)}to{transform:none}}
+
+.emp-hero .sub{margin:26px 0 0;font-size:20px;line-height:1.5;color:#dbe4ff;max-width:640px;animation:emp-fade .8s .45s both}
+.emp-hero .cta{display:inline-flex;align-items:center;gap:12px;margin-top:34px;padding:20px 34px;border-radius:16px;background:var(--lime);color:var(--ink);
+  font-weight:700;font-size:20px;text-decoration:none;box-shadow:0 18px 40px -16px rgba(228,248,106,.55);transition:transform .2s,box-shadow .2s;animation:emp-fade .8s .6s both}
+.emp-hero .cta:hover{transform:translateY(-3px);box-shadow:0 24px 50px -16px rgba(228,248,106,.75)}
+.emp-hero .cta svg{transition:transform .2s}
+.emp-hero .cta:hover svg{transform:translateX(4px)}
+.emp-hero .already{margin:22px 0 0;font-size:15px;color:#a9b8e0;animation:emp-fade .8s .75s both}
+.emp-hero .already a{color:#fff;font-weight:700;text-decoration:none}
+@keyframes emp-fade{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+
+/* ---- floating feature cards ---- */
+.emp-hero .floater{position:absolute;z-index:3;display:flex;align-items:center;gap:10px;padding:11px 15px;border-radius:14px;font-size:13px;font-weight:700;text-align:left;
+  background:rgba(10,26,69,.6);border:1px solid rgba(56,189,248,.35);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:0 0 30px -8px rgba(56,189,248,.6);
+  animation:emp-pop .7s cubic-bezier(.2,1.4,.4,1) both, emp-bob 6s ease-in-out infinite}
+.emp-hero .floater small{display:block;font-weight:500;color:#93c5fd;font-size:11px}
+.emp-hero .floater .ic{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:var(--lime);color:var(--ink);font-size:15px}
+.emp-hero .floater.f1{left:6%;top:24%;animation-delay:1.2s,2s}
+.emp-hero .floater.f2{right:6%;top:30%;animation-delay:1.5s,2.4s}
+.emp-hero .floater.f3{left:9%;bottom:16%;animation-delay:1.8s,2.8s}
+.emp-hero .floater.f4{right:8%;bottom:18%;animation-delay:2.1s,3.2s}
+@keyframes emp-pop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:none}}
+@keyframes emp-bob{50%{transform:translateY(-10px)}}
+
+/* ---- responsive ---- */
+@media (max-width:1100px){.emp-hero .floater{display:none}}
+@media (max-width:760px){
+  .emp-hero{padding:100px 18px 70px}
+  .emp-hero.under-header{padding-top:180px}
+  .emp-hero.in-app{padding-top:60px}
+  .emp-hero .sub{font-size:16px}
+  .emp-hero .cta{font-size:17px;padding:16px 24px}
+}
+@media (prefers-reduced-motion:reduce){
+  .emp-hero *,.emp-hero *::before,.emp-hero *::after{animation:none!important;transition:none!important}
+}

@@ -2,6 +2,10 @@
 
 @theme {
   --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+  /* Condensed poster type for the home page headlines. */
+  --font-display: 'Anton', 'Impact', ui-sans-serif, sans-serif;
+  /* The wordmark's typeface. */
+  --font-logo: 'Poppins', ui-sans-serif, system-ui, sans-serif;
 
   --color-brand-50: #ecfdf5;
   --color-brand-100: #d1fae5;
@@ -13,6 +17,22 @@
   --color-brand-900: #064e3b;
 
   --color-ink: #0f172a;
+  /* Lime accent used on the dark home hero. */
+  --color-zest: #d9f95b;
+  --color-zest-hover: #c8ec3c;
+
+  /* Page entrance on the employer pages. */
+  --animate-fade-up: fade-up 0.45s cubic-bezier(0.2, 0.7, 0.2, 1);
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(10px); }
+  }
+
+  /* Light sweeping along the docked header's bottom edge. */
+  --animate-scan: scan 3s linear infinite;
+  @keyframes scan {
+    from { background-position: 100% 0; }
+    to { background-position: -100% 0; }
+  }
 }
 
 @layer base {

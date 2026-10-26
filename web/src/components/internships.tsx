@@ -14,13 +14,58 @@ import {
   MapPin,
   Users,
   Wallet,
+  Zap,
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
-import { deadlineLabel, formatDuration, formatLocation, formatPay, timeAgo } from '../lib/format';
+import { fetchProfile } from '../lib/profile';
+import { MODE_LABEL, deadlineLabel, formatDuration, formatLocation, formatPay, timeAgo } from '../lib/format';
 import { toastError } from '../lib/forms';
-import type { Internship, StudentProfile } from '../lib/types';
+import type { Internship } from '../lib/types';
 import { Avatar, Badge, Button, ButtonLink, Chip, CompanyName, Modal, Spinner, Textarea, cx } from './ui';
+
+/** Wide, single-column listing card: description teaser, a row of key numbers, and a call to action. */
+export function InternshipRow({ internship: i }: { internship: Internship }) {
+  const company = i.company;
+  const stats: [string, string][] = [
+    [formatPay(i), 'stipend'],
+    [formatDuration(i.durationWeeks), 'duration'],
+    [i.mode === 'remote' ? 'Remote' : i.city, i.mode === 'remote' ? 'location' : MODE_LABEL[i.mode].toLowerCase()],
+    [String(i.applicationCount), i.applicationCount === 1 ? 'applicant' : 'applicants'],
+  ];
+
+  return (
+    <Link to={`/internships/${i._id}`} className="group block rounded-2xl border border-slate-300 bg-white p-6 shadow-sm transition-shadow hover:shadow-md sm:px-10 sm:py-8">
+      <div className="flex items-center gap-3">
+        <Avatar name={company?.name ?? '?'} src={company?.logoUrl} square />
+        <div className="min-w-0">
+          <h3 className="text-lg font-bold leading-snug text-ink group-hover:underline">{i.title}</h3>
+          <p className="text-sm text-slate-600">{company && <CompanyName name={company.name} verified={company.verified} />}</p>
+        </div>
+      </div>
+      <p className="mt-4 line-clamp-1 text-slate-500">{i.description}</p>
+      <div className="mt-5 flex flex-wrap items-end justify-between gap-5">
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:flex sm:gap-x-8">
+          {stats.map(([value, label]) => (
+            <div key={label}>
+              <dt className="sr-only">{label}</dt>
+              <dd className="font-bold text-ink">{value}</dd>
+              <dd className="text-sm text-slate-500" aria-hidden>{label}</dd>
+            </div>
+          ))}
+        </dl>
+        <span
+          className={cx(
+            'shrink-0 rounded-full border px-5 py-2.5 font-semibold transition-colors',
+            i.applicationId ? 'border-brand-600 text-brand-700' : 'border-ink text-ink group-hover:bg-ink group-hover:text-white',
+          )}
+        >
+          {i.applicationId ? 'Applied' : 'Apply now'}
+        </span>
+      </div>
+    </Link>
+  );
+}
 
 export function InternshipCard({ internship: i, active, onSelect }: { internship: Internship; active?: boolean; onSelect?: () => void }) {
   const company = i.company;
@@ -52,10 +97,17 @@ export function InternshipCard({ internship: i, active, onSelect }: { internship
         {i.skills.slice(0, 4).map((s) => <Chip key={s}>{s}</Chip>)}
         {i.skills.length > 4 && <span className="text-xs text-slate-500">+{i.skills.length - 4}</span>}
       </div>
-      <p className="mt-3 text-xs text-slate-500">
-        {i.publishedAt && `Posted ${timeAgo(i.publishedAt)}`}
-        {deadline && <span className={cx('ml-2', deadline.startsWith('Closes') && 'font-semibold text-amber-700')}>· {deadline}</span>}
-      </p>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-slate-500">
+          {i.publishedAt && `Posted ${timeAgo(i.publishedAt)}`}
+          {deadline && <span className={cx('ml-2', deadline.startsWith('Closes') && 'font-semibold text-amber-700')}>· {deadline}</span>}
+        </p>
+        {i.acceptingApplications && !i.applicationId && (
+          <span className="inline-flex items-center gap-1 rounded-md bg-brand-50 px-2 py-1 text-xs font-bold text-brand-700">
+            <Zap className="size-3.5 fill-current" aria-hidden /> Quick apply
+          </span>
+        )}
+      </div>
     </>
   );
 
@@ -128,7 +180,13 @@ function ApplyAction({ internship }: { internship: Internship }) {
   if (user.role !== 'student') return null;
   return (
     <>
-      <Button onClick={() => setOpen(true)}>Apply now</Button>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex h-10 items-center gap-2 rounded-lg bg-ink px-5 text-sm font-bold text-white transition-colors hover:bg-slate-800"
+      >
+        <Zap className="size-4 fill-brand-500 text-brand-500" aria-hidden /> Apply now
+      </button>
       {open && <ApplyDialog internship={internship} onClose={() => setOpen(false)} />}
     </>
   );
@@ -137,7 +195,7 @@ function ApplyAction({ internship }: { internship: Internship }) {
 function ApplyDialog({ internship, onClose }: { internship: Internship; onClose: () => void }) {
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const profile = useQuery({ queryKey: ['profile'], queryFn: () => api<{ profile: StudentProfile }>('/profile/me') });
+  const profile = useQuery({ queryKey: ['profile'], queryFn: fetchProfile });
   const { register, handleSubmit, formState } = useForm<{ coverLetter: string; answers: Record<string, string> }>({
     defaultValues: { coverLetter: '', answers: {} },
   });
@@ -162,7 +220,7 @@ function ApplyDialog({ internship, onClose }: { internship: Internship; onClose:
     onError: toastError,
   });
 
-  const resume = profile.data?.profile.resume;
+  const resume = profile.data?.resume;
   const missingResume = profile.isSuccess && !resume;
 
   return (
@@ -284,11 +342,11 @@ export function InternshipDetail({ internship: i, compact }: { internship: Inter
         )}
       </div>
 
-      <dl className="mt-6 grid grid-cols-2 gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-4 sm:grid-cols-3">
+      <dl className="mt-6 grid grid-cols-2 gap-3 rounded-xl border border-brand-100 bg-brand-50/70 p-4 sm:grid-cols-3">
         {facts.map(({ icon: Icon, label, value }) => (
           <div key={label}>
             <dt className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-slate-500">
-              <Icon className="size-3.5" /> {label}
+              <Icon className="size-3.5 text-brand-700" /> {label}
             </dt>
             <dd className="mt-0.5 text-sm font-semibold text-ink">{value}</dd>
           </div>

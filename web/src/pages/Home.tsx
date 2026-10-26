@@ -1,103 +1,77 @@
-import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRight, Bell, FileText, MapPin, MessageSquare, Search, ShieldCheck } from 'lucide-react';
-import { CITIES } from '@shared/schemas';
-import { InternshipCard } from '../components/internships';
-import { Avatar, Button, ButtonLink, CompanyName, Spinner } from '../components/ui';
+import { ArrowRight, Bell, FileText, MessageSquare, Search, ShieldCheck } from 'lucide-react';
+import { HomeHero } from '../components/HomeHero';
+import { InternshipRow } from '../components/internships';
+import { ScrollShowcase } from '../components/ScrollShowcase';
+import { Avatar, ButtonLink, CompanyName, Spinner } from '../components/ui';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import type { Company, Internship, Paged } from '../lib/types';
 
+/** Soft teal-to-olive glow behind the "Hiring interns?" banner. */
+const HERO_BACKGROUND = [
+  'radial-gradient(55% 50% at 50% 36%, rgb(118 176 98 / 0.85), transparent 70%)',
+  'radial-gradient(40% 50% at 90% 20%, rgb(62 148 158 / 0.85), transparent 70%)',
+  'radial-gradient(40% 50% at 8% 18%, rgb(42 112 120 / 0.8), transparent 70%)',
+  'radial-gradient(65% 40% at 55% 82%, rgb(112 132 42 / 0.7), transparent 70%)',
+  'linear-gradient(180deg, #24504f 0%, #2a4a30 60%, #141c15 100%)',
+].join(', ');
+
+const SECTION_HEADING = 'font-display text-3xl uppercase tracking-wide sm:text-4xl';
+
 export default function Home() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [q, setQ] = useState('');
-  const [city, setCity] = useState('');
 
   const latest = useQuery({
     queryKey: ['internships', 'home'],
     queryFn: () => api<Paged<Internship>>('/internships', { query: { limit: 6 } }),
   });
-  const skills = useQuery({
-    queryKey: ['popular-skills'],
-    queryFn: () => api<{ skills: { name: string; count: number }[] }>('/internships/popular-skills'),
-  });
   const companies = useQuery({ queryKey: ['companies'], queryFn: () => api<{ companies: Company[] }>('/companies') });
 
-  const onSearch = (e: FormEvent) => {
-    e.preventDefault();
-    const params = new URLSearchParams();
-    if (q.trim()) params.set('q', q.trim());
-    if (city) params.set('city', city);
-    navigate(`/internships?${params}`);
-  };
+  const total = latest.data?.total;
 
   return (
     <>
-      <section className="relative overflow-hidden border-b border-slate-200 bg-white">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,var(--color-brand-100),transparent_55%)]" aria-hidden />
-        <div className="relative mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-24">
-          <div className="max-w-3xl">
-            <h1 className="text-4xl font-extrabold tracking-tight text-ink sm:text-6xl">
-              Your first role starts <span className="text-brand-700">here</span>.
-            </h1>
-            <p className="mt-5 max-w-2xl text-lg text-slate-600">
-              Find paid internships at startups and companies across Pakistan and abroad. Apply with one profile and track every application in one place.
-            </p>
-          </div>
+      <HomeHero
+        stats={[
+          { value: total, label: 'open internships' },
+          { value: companies.data?.companies.filter((c) => (c.openRoles ?? 0) > 0).length, label: 'hiring companies' },
+        ]}
+        onSearch={(params) => navigate(`/internships${params.size ? `?${params}` : ''}`)}
+      />
 
-          <form onSubmit={onSearch} className="mt-8 flex max-w-3xl flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-lg shadow-slate-200/60 sm:flex-row">
-            <label className="flex flex-1 items-center gap-2 px-3">
-              <Search className="size-5 shrink-0 text-slate-400" />
-              <span className="sr-only">Keywords</span>
-              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Frontend, data, design, marketing…" className="h-12 w-full bg-transparent outline-none placeholder:text-slate-400" />
-            </label>
-            <div className="hidden w-px bg-slate-200 sm:block" />
-            <label className="flex items-center gap-2 px-3 sm:w-52">
-              <MapPin className="size-5 shrink-0 text-slate-400" />
-              <span className="sr-only">City</span>
-              <select value={city} onChange={(e) => setCity(e.target.value)} className="h-12 w-full bg-transparent outline-none">
-                <option value="">Anywhere</option>
-                {CITIES.map((c) => <option key={c}>{c}</option>)}
-              </select>
-            </label>
-            <Button type="submit" size="lg">Search internships</Button>
-          </form>
-
-          {skills.data && skills.data.skills.length > 0 && (
-            <div className="mt-5 flex max-w-3xl flex-wrap items-center gap-2">
-              <span className="text-sm text-slate-500">Popular:</span>
-              {skills.data.skills.slice(0, 8).map((s) => (
-                <Link key={s.name} to={`/internships?skill=${encodeURIComponent(s.name)}`} className="rounded-full border border-slate-200 bg-white px-3 py-1 text-sm font-medium text-slate-700 hover:border-brand-600 hover:text-brand-800">
-                  {s.name}
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6">
+      <section className="mx-auto max-w-4xl px-4 py-16 sm:px-6">
         <div className="flex items-end justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-extrabold tracking-tight">Latest internships</h2>
+            <h2 className={SECTION_HEADING}>Latest internships</h2>
             <p className="mt-1 text-slate-600">Fresh roles from teams that are hiring now.</p>
           </div>
           <Link to="/internships" className="hidden items-center gap-1 text-sm font-semibold text-brand-700 hover:underline sm:flex">
             See all <ArrowRight className="size-4" />
           </Link>
         </div>
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {total !== undefined && <p className="mt-6 text-slate-500">{total} open {total === 1 ? 'internship' : 'internships'}</p>}
+        <div className="mt-3 space-y-6">
           {latest.isLoading && <Spinner />}
-          {latest.data?.items.map((i) => <InternshipCard key={i._id} internship={i} />)}
+          {latest.data?.items.map((i) => <InternshipRow key={i._id} internship={i} />)}
+          {latest.data?.items.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
+              <p className="font-bold">No internships posted yet</p>
+              <p className="mt-1 text-sm text-slate-500">New roles show up here as soon as companies post them.</p>
+              <Link to="/employers" className="mt-4 inline-block text-sm font-semibold text-brand-700 hover:underline">Hiring? Post the first internship →</Link>
+            </div>
+          )}
         </div>
         <ButtonLink to="/internships" variant="secondary" className="mt-6 w-full sm:hidden">See all internships</ButtonLink>
       </section>
 
+      <ScrollShowcase />
+
       <section className="border-y border-slate-200 bg-white">
         <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6">
-          <h2 className="text-2xl font-extrabold tracking-tight">How it works</h2>
+          <h2 className={SECTION_HEADING}>How it works</h2>
           <div className="mt-8 grid gap-8 md:grid-cols-4">
             {[
               { icon: FileText, title: 'Build one profile', body: 'Add your skills, projects and resume once. Reuse it for every application.' },
@@ -127,7 +101,7 @@ export default function Home() {
       {companies.data && companies.data.companies.length > 0 && (
         <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6">
           <div className="flex items-end justify-between">
-            <h2 className="text-2xl font-extrabold tracking-tight">Companies hiring interns</h2>
+            <h2 className={SECTION_HEADING}>Companies hiring interns</h2>
             <Link to="/companies" className="flex items-center gap-1 text-sm font-semibold text-brand-700 hover:underline">
               All companies <ArrowRight className="size-4" />
             </Link>
@@ -149,14 +123,18 @@ export default function Home() {
 
       {user?.role !== 'student' && (
         <section className="mx-auto max-w-7xl px-4 sm:px-6">
-          <div className="flex flex-col items-start justify-between gap-6 rounded-2xl bg-ink px-6 py-10 text-white sm:flex-row sm:items-center sm:px-10">
+          <div className="relative isolate flex flex-col items-start justify-between gap-6 overflow-hidden rounded-2xl bg-[#152a26] px-6 py-12 text-white sm:flex-row sm:items-center sm:px-10">
+            <div className="absolute inset-0 -z-10 opacity-80" style={{ background: HERO_BACKGROUND }} aria-hidden />
             <div>
-              <h2 className="text-2xl font-extrabold tracking-tight">Hiring interns?</h2>
-              <p className="mt-2 max-w-xl text-slate-300">Post a role for free, review applicants in one place and message candidates directly.</p>
+              <h2 className="font-display text-4xl uppercase sm:text-5xl">Hiring interns?</h2>
+              <p className="mt-3 max-w-xl text-white/85">Post a role for free, review applicants in one place and message candidates directly.</p>
             </div>
-            <ButtonLink to={user?.role === 'employer' ? '/employer/internships/new' : '/signup?role=employer'} size="lg" className="bg-white text-ink hover:bg-slate-100">
-              Post an internship
-            </ButtonLink>
+            <Link
+              to={user?.role === 'employer' ? '/employer/internships/new' : '/signup?role=employer'}
+              className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-zest px-6 py-3.5 font-bold text-ink transition-colors hover:bg-zest-hover"
+            >
+              Post an internship <ArrowRight className="size-5" />
+            </Link>
           </div>
         </section>
       )}

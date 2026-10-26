@@ -4,8 +4,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
-import { ArrowLeft, Bookmark, Briefcase, Check, FileText, Link2, MessageSquare, ShieldCheck, Trash2, Upload } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Bookmark, Briefcase, Check, FileText, Link2, MapPin, MessageSquare, ShieldCheck, Sparkles, Trash2, Upload, UserRound } from 'lucide-react';
 import { APPLICATION_STATUSES, StudentProfileSchema, type ApplicationStatus, type StudentProfileInput } from '@shared/schemas';
+import { GreetingHero } from '../components/GreetingHero';
 import { InternshipCard } from '../components/internships';
 import {
   Avatar,
@@ -26,8 +27,10 @@ import {
 } from '../components/ui';
 import { ApiError, api, openProtectedFile } from '../lib/api';
 import { STATUS_META, formatBytes, formatDate, formatLocation, formatPay, timeAgo } from '../lib/format';
+import { useAuth } from '../lib/auth';
 import { applyServerErrors, toastError } from '../lib/forms';
-import type { Application, Internship, StudentProfile } from '../lib/types';
+import { fetchProfile, profileSteps } from '../lib/profile';
+import type { Application, Internship, Paged, StudentProfile } from '../lib/types';
 import { NotFound } from './Public';
 
 export function StatusBadge({ status }: { status: ApplicationStatus }) {
@@ -37,20 +40,152 @@ export function StatusBadge({ status }: { status: ApplicationStatus }) {
 
 const ACTIVE: ApplicationStatus[] = ['applied', 'reviewing', 'interview', 'offered'];
 
+/** The name people go by. Many Pakistani names start with "Muhammad", so use the next name instead. */
+function firstName(name: string) {
+  const [first, second] = name.trim().split(/\s+/);
+  return second && /^(muhammad|mohammad|mohammed|muhammed|m\.?)$/i.test(first) ? second : first;
+}
+
+/** A student's signed-in home: profile progress, where their applications stand, and internships that fit their skills. */
+export function StudentHome() {
+  const { user } = useAuth();
+  const [params] = useSearchParams();
+  const profile = useQuery({ queryKey: ['profile'], queryFn: fetchProfile });
+  const apps = useQuery({ queryKey: ['my-applications'], queryFn: () => api<{ items: Application[] }>('/applications/mine') });
+  const latest = useQuery({
+    queryKey: ['internships', 'recommended'],
+    queryFn: () => api<Paged<Internship>>('/internships', { query: { limit: 50 } }),
+  });
+
+  if (profile.isLoading) return <PageSpinner />;
+  if (profile.isError) return <ErrorState error={profile.error} retry={() => profile.refetch()} />;
+  const p = profile.data!;
+
+  const steps = profileSteps(p);
+  const remaining = steps.filter((s) => !s.done).length;
+
+  const items = apps.data?.items ?? [];
+  const count = (...s: ApplicationStatus[]) => items.filter((a) => s.includes(a.status)).length;
+  const stats = [
+    { label: 'Applied', value: count('applied') },
+    { label: 'In review', value: count('reviewing') },
+    { label: 'Interviews', value: count('interview') },
+    { label: 'Offers', value: count('offered', 'hired') },
+  ];
+
+  // Most skill overlap first; ties keep the API's newest-first order.
+  const mySkills = new Set(p.skills.map((s) => s.toLowerCase()));
+  const recommended = (latest.data?.items ?? [])
+    .filter((i) => !i.applicationId && i.acceptingApplications)
+    .map((i) => ({ i, score: i.skills.filter((s) => mySkills.has(s.toLowerCase())).length }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 6)
+    .map(({ i }) => i);
+
+  return (
+    <>
+    <GreetingHero name={firstName(p.name)} />
+
+    <div className="mx-auto max-w-5xl space-y-5 px-4 py-6 sm:px-6 sm:py-8">
+      {params.get('welcome') && (
+        <div className="rounded-xl border border-brand-200 bg-brand-50 p-4 text-sm text-brand-900">
+          <p className="font-bold">Welcome to WorkNest, {firstName(p.name)}!</p>
+          <p className="mt-1">Finish the steps below so employers see the full picture when you apply.</p>
+        </div>
+      )}
+
+      {remaining > 0 && (
+        <Card className="overflow-hidden">
+          <div className="flex gap-1" aria-hidden>
+            {steps.map((s, n) => (
+              <span key={s.label} className={cx('h-1.5 flex-1', n < steps.length - remaining ? 'bg-brand-600' : 'bg-slate-200')} />
+            ))}
+          </div>
+          <div className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center">
+            <UserRound className="hidden size-6 shrink-0 text-slate-500 sm:block" aria-hidden />
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold">Your profile is missing key information employers look for</p>
+              <p className="mt-0.5 text-sm text-slate-500">Next: {steps.find((s) => !s.done)!.label.toLowerCase()}.</p>
+            </div>
+            <Link to="/profile" className="flex shrink-0 items-center gap-1 text-sm font-semibold text-brand-700 hover:underline">
+              {remaining} {remaining === 1 ? 'step' : 'steps'} to complete <ArrowRight className="size-4" />
+            </Link>
+          </div>
+        </Card>
+      )}
+
+      <Card className="p-5 sm:p-6">
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
+          <Avatar name={p.name} src={user?.avatarUrl ?? undefined} size="xl" />
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <h2 className="text-2xl font-extrabold tracking-tight">{p.name}</h2>
+              <Link to="/profile" className="text-sm font-semibold text-brand-700 hover:underline">Edit your profile</Link>
+            </div>
+            {p.headline && <p className="mt-1 text-slate-700">{p.headline}</p>}
+            <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500">
+              {p.city && <span className="flex items-center gap-1"><MapPin className="size-4" /> {p.city}</span>}
+              {p.university && <span>{[p.degree, p.university].filter(Boolean).join(' · ')}</span>}
+            </p>
+
+            <p className="mt-5 text-sm font-semibold">Your applications</p>
+            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {stats.map((s) => (
+                <Link key={s.label} to="/dashboard" className="rounded-xl border border-slate-200 px-4 py-3 hover:border-slate-300 hover:bg-slate-50">
+                  <p className="text-2xl font-extrabold">{s.value}</p>
+                  <p className="text-sm text-slate-500">{s.label}</p>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      <Card className="p-5 sm:p-6">
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-bold">Recommended internships</h2>
+            <p className="text-sm text-slate-500">
+              {p.skills.length ? 'Open roles that match the skills on your profile.' : 'Add skills to your profile to get better matches.'}
+            </p>
+          </div>
+          <Link to="/internships" className="hidden shrink-0 items-center gap-1 text-sm font-semibold text-brand-700 hover:underline sm:flex">
+            See all <ArrowRight className="size-4" />
+          </Link>
+        </div>
+        {latest.isLoading ? (
+          <PageSpinner />
+        ) : recommended.length ? (
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">{recommended.map((i) => <InternshipCard key={i._id} internship={i} />)}</div>
+        ) : (
+          <EmptyState
+            icon={<Sparkles className="size-6" />}
+            title="No new matches right now"
+            body="You've applied to every open role, or none are open. New internships show up here as companies post them."
+            action={<ButtonLink to="/internships" variant="secondary">Browse internships</ButtonLink>}
+          />
+        )}
+        <ButtonLink to="/internships" variant="secondary" className="mt-4 w-full sm:hidden">See all internships</ButtonLink>
+      </Card>
+    </div>
+    </>
+  );
+}
+
 export function StudentDashboard() {
   const [params, setParams] = useSearchParams();
   const tab = params.get('tab') === 'saved' ? 'saved' : params.get('tab') === 'closed' ? 'closed' : 'active';
 
   const apps = useQuery({ queryKey: ['my-applications'], queryFn: () => api<{ items: Application[] }>('/applications/mine') });
   const saved = useQuery({ queryKey: ['saved'], queryFn: () => api<{ items: Internship[] }>('/internships/saved') });
-  const profile = useQuery({ queryKey: ['profile'], queryFn: () => api<{ profile: StudentProfile }>('/profile/me') });
+  const profile = useQuery({ queryKey: ['profile'], queryFn: fetchProfile });
 
   const items = apps.data?.items ?? [];
   const active = items.filter((a) => ACTIVE.includes(a.status));
   const closed = items.filter((a) => !ACTIVE.includes(a.status));
   const counts = Object.fromEntries(APPLICATION_STATUSES.map((s) => [s, items.filter((a) => a.status === s).length]));
 
-  const p = profile.data?.profile;
+  const p = profile.data;
   const checklist = p
     ? [
         { done: !!p.resume, label: 'Upload your resume' },
@@ -256,7 +391,7 @@ export function ProfilePage() {
   const [params] = useSearchParams();
   const fileInput = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
-  const q = useQuery({ queryKey: ['profile'], queryFn: () => api<{ profile: StudentProfile }>('/profile/me').then((r) => r.profile) });
+  const q = useQuery({ queryKey: ['profile'], queryFn: fetchProfile });
 
   if (q.isLoading) return <PageSpinner />;
   if (q.isError) return <ErrorState error={q.error} retry={() => q.refetch()} />;

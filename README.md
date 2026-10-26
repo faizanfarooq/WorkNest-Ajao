@@ -11,29 +11,16 @@ Requires Node 20.6+.
 ```bash
 npm install
 
-# Option A: no database needed. Starts an in-memory MongoDB with demo data (wiped on exit).
-npm run dev:memory
-
-# Option B: your Atlas database
-cp .env.example .env        # then fill in MONGODB_URI and JWT_SECRET
-npm run seed                # demo data (skips if users already exist; --reset wipes first)
+# Your Atlas database
+cp .env.example .env        # then fill in MONGODB_URI, JWT_SECRET and the Firebase values
 npm run dev
 ```
 
-Open http://localhost:5173. Demo logins (password `Password123`):
+Open http://localhost:5173. **Sign-in is Google only**: log in and sign up with a Google account (sign-up asks whether you're a student or hiring, plus the company name for employers). There are no demo accounts and no WorkNest passwords, so Google sign-in must be configured: set `FIREBASE_PROJECT_ID` and the `VITE_FIREBASE_*` values (see [Sign in with Google](#sign-in-with-google-optional)).
 
-| Role | Email |
-|---|---|
-| Student | `student@worknest.test` |
-| Employer (Ledgerly) | `employer@worknest.test` |
-| Other employers | `hiring@<company-slug>.test`, e.g. `hiring@northstar-studio.test` |
+The database starts empty. `npm run seed` would load sample companies and `@….test` demo accounts; they can't be signed into from the website, so don't run it against the real database. `npm run dev:memory` runs against a throwaway in-memory database with that sample data.
 
-Password-reset emails print to the API console unless `RESEND_API_KEY` is set.
-
-Optional extras, both off until configured in `.env`:
-
-- **Continue with Google**: set `FIREBASE_PROJECT_ID` and the `VITE_FIREBASE_*` values (see [Sign in with Google](#sign-in-with-google-optional)). The button stays hidden without them.
-- **Email verification**: set `REQUIRE_EMAIL_VERIFICATION=true` once email delivery works. New password sign-ups then get a link and can't apply to or publish internships until they click it. Google sign-ups count as verified already.
+The server still has the email/password endpoints because the API tests use them; the website no longer shows them.
 
 ## Static demo (GitHub Pages)
 

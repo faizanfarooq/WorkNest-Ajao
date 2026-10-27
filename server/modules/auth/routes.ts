@@ -153,7 +153,7 @@ router.post('/register', authLimiter, validate(RegisterSchema), async (req, res)
   res.status(201).json(await startSession(req, res, user));
 });
 
-/** `credential` is a Firebase ID token from the Google popup, verified server-side with firebase-admin. */
+/** `credential` is a Firebase ID token from the Google popup, verified server-side against Google's public keys. */
 router.post('/google', authLimiter, validate(GoogleAuthSchema), async (req, res) => {
   const input = req.body as GoogleAuthInput;
   const google = await verifyGoogleIdToken(input.credential);

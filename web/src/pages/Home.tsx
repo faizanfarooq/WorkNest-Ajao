@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { ArrowRight, Bell, FileText, MapPin, MessageSquare, Search, ShieldCheck } from 'lucide-react';
 import { CITIES } from '@shared/schemas';
 import { InternshipCard } from '../components/internships';
+import { PageMetadata } from '../components/PageMetadata';
 import { Avatar, Button, ButtonLink, CompanyName, Spinner } from '../components/ui';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
@@ -35,6 +36,10 @@ export default function Home() {
 
   return (
     <>
+      <PageMetadata
+        title="Internships for students in Pakistan | WorkNest"
+        description="Find and apply to paid internships at startups and companies across Pakistan and abroad. Track every application in one place."
+      />
       <section className="relative overflow-hidden border-b border-slate-200 bg-white">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,var(--color-brand-100),transparent_55%)]" aria-hidden />
         <div className="relative mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-24">

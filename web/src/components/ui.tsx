@@ -13,8 +13,11 @@ import {
 import { createPortal } from 'react-dom';
 import { Link, type LinkProps } from 'react-router';
 import { BadgeCheck, Loader2, X } from 'lucide-react';
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
 
-export const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ');
+// Later classes win over conflicting earlier ones, so `className` overrides component defaults.
+export const cx = (...c: ClassValue[]) => twMerge(clsx(c));
 
 // ---------- Buttons ----------
 

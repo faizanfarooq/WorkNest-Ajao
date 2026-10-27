@@ -4,6 +4,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { ChevronLeft, ChevronRight, MapPin, Search, SearchX, X } from 'lucide-react';
 import { CITIES } from '@shared/schemas';
 import { InternshipCard, InternshipDetail } from '../components/internships';
+import { PageMetadata } from '../components/PageMetadata';
 import { Button, Card, EmptyState, ErrorState, Spinner, cx } from '../components/ui';
 import { api } from '../lib/api';
 import type { Internship, Paged } from '../lib/types';
@@ -83,6 +84,10 @@ export default function InternshipsPage() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+      <PageMetadata
+        title="Find internships in Pakistan and beyond | WorkNest"
+        description="Browse paid and remote internships, search by city or skill, and find your next opportunity on WorkNest."
+      />
       <form onSubmit={onSearch} className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm sm:flex-row">
         <label className="flex flex-1 items-center gap-2 px-3">
           <Search className="size-5 shrink-0 text-slate-400" />

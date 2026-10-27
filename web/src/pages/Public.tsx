@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, Building2, Globe, MapPin, Search, Users } from 'lucide-react';
 import { InternshipCard, InternshipDetail } from '../components/internships';
+import { PageMetadata } from '../components/PageMetadata';
 import { Avatar, ButtonLink, Card, CompanyName, EmptyState, ErrorState, PageHeader, PageSpinner } from '../components/ui';
 import { ApiError, api } from '../lib/api';
 import { formatDate } from '../lib/format';
@@ -18,14 +19,19 @@ export function InternshipPage() {
   if (q.isLoading) return <PageSpinner />;
   if (q.error instanceof ApiError && q.error.status === 404) return <NotFound what="internship" />;
   if (q.isError) return <ErrorState error={q.error} retry={() => q.refetch()} />;
+  const internship = q.data!;
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
+      <PageMetadata
+        title={`${internship.title} at ${internship.company?.name ?? 'WorkNest'} | WorkNest`}
+        description={internship.description.slice(0, 160)}
+      />
       <Link to="/internships" className="mb-5 inline-flex items-center gap-1.5 text-sm font-semibold text-slate-600 hover:text-ink">
         <ArrowLeft className="size-4" /> All internships
       </Link>
       <Card className="p-5 sm:p-8">
-        <InternshipDetail internship={q.data!} />
+        <InternshipDetail internship={internship} />
       </Card>
     </div>
   );
@@ -41,6 +47,10 @@ export function CompaniesPage() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10">
+      <PageMetadata
+        title="Companies hiring interns | WorkNest"
+        description="Explore startups and companies hiring interns on WorkNest."
+      />
       <PageHeader title="Companies" subtitle="Startups and teams hiring interns on WorkNest." />
       <label className="mb-6 flex max-w-md items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 shadow-sm focus-within:border-brand-600 focus-within:ring-2 focus-within:ring-brand-600/30">
         <Search className="size-4 text-slate-400" />
@@ -83,6 +93,10 @@ export function CompanyPage() {
 
   return (
     <>
+      <PageMetadata
+        title={`${c.name} internships | WorkNest`}
+        description={(c.tagline || c.about || `Explore internship opportunities at ${c.name} on WorkNest.`).slice(0, 160)}
+      />
       <div className="border-b border-slate-200 bg-white">
         <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
@@ -125,6 +139,10 @@ export function CompanyPage() {
 export function NotFound({ what = 'page' }: { what?: string }) {
   return (
     <div className="mx-auto max-w-md px-4 py-24 text-center">
+      <PageMetadata
+        title="Not found | WorkNest"
+        description="The page you're looking for could not be found on WorkNest."
+      />
       <p className="text-6xl font-extrabold text-brand-700">404</p>
       <h1 className="mt-4 text-2xl font-extrabold">We couldn't find that {what}</h1>
       <p className="mt-2 text-slate-600">It may have been removed, or the link is wrong.</p>

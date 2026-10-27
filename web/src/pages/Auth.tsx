@@ -8,6 +8,7 @@ import { Briefcase, CircleAlert, GraduationCap, MailCheck } from 'lucide-react';
 import { ForgotPasswordSchema, LoginSchema, RegisterSchema, ResetPasswordSchema, type LoginInput } from '@shared/schemas';
 import { GoogleButton } from '../components/GoogleButton';
 import { Logo } from '../components/Layout';
+import { PageMetadata } from '../components/PageMetadata';
 import { Button, ButtonLink, Card, Input, Spinner, cx } from '../components/ui';
 import { ApiError, IS_DEMO, api } from '../lib/api';
 import { useAuth } from '../lib/auth';
@@ -18,17 +19,20 @@ const safeNext = (next: string | null) => (next && next.startsWith('/') && !next
 
 function AuthShell({ title, subtitle, children, footer }: { title: string; subtitle?: ReactNode; children: ReactNode; footer?: ReactNode }) {
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] items-start justify-center px-4 py-10 sm:items-center">
-      <div className="w-full max-w-md">
-        <div className="mb-6 flex justify-center"><Logo /></div>
-        <Card className="p-6 sm:p-8">
-          <h1 className="text-2xl font-extrabold tracking-tight">{title}</h1>
-          {subtitle && <p className="mt-1 text-sm text-slate-600">{subtitle}</p>}
-          <div className="mt-6">{children}</div>
-        </Card>
-        {footer && <p className="mt-5 text-center text-sm text-slate-600">{footer}</p>}
+    <>
+      <PageMetadata title={`${title} | WorkNest`} description="Manage your WorkNest account and discover internship opportunities." />
+      <div className="flex min-h-[calc(100vh-4rem)] items-start justify-center px-4 py-10 sm:items-center">
+        <div className="w-full max-w-md">
+          <div className="mb-6 flex justify-center"><Logo /></div>
+          <Card className="p-6 sm:p-8">
+            <h1 className="text-2xl font-extrabold tracking-tight">{title}</h1>
+            {subtitle && <p className="mt-1 text-sm text-slate-600">{subtitle}</p>}
+            <div className="mt-6">{children}</div>
+          </Card>
+          {footer && <p className="mt-5 text-center text-sm text-slate-600">{footer}</p>}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 

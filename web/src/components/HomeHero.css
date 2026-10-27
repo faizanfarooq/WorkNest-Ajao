@@ -1,0 +1,112 @@
+/* =========================================================
+   WorkNest – Homepage hero (greyish white · blue · sky blue · silver)
+   Everything is scoped under .home-hero, and animation names are prefixed hh-.
+   Fonts (Anton, Plus Jakarta Sans) are loaded in web/index.html.
+   ========================================================= */
+.home-hero{
+  --bg:#f3f5f8;--grey:#e2e7ee;--blue:#2563eb;--blue-d:#1d4ed8;--sky:#38bdf8;--ink:#0f172a;--text:#475569;--muted:#8592a6;
+  position:relative;min-height:100vh;overflow:hidden;isolation:isolate;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+  padding:var(--hero-top,110px) 24px 70px;
+  font-family:"Plus Jakarta Sans",system-ui,sans-serif;color:var(--ink);
+  background:radial-gradient(ellipse 80% 60% at 50% 40%,#ffffff 0%,var(--bg) 60%,var(--grey) 100%);
+}
+/* Visitors: slide up under the 80px transparent header. */
+.home-hero.under-header{margin-top:-80px;--hero-top:150px}
+.home-hero *{box-sizing:border-box}
+.home-hero h1,.home-hero p{margin:0}
+.home-hero button{font:inherit;cursor:pointer}
+
+/* ---------- background: blue / sky / silver aurora ---------- */
+.home-hero .aurora{position:absolute;inset:0;z-index:-2;pointer-events:none;overflow:hidden}
+.home-hero .ribbon{position:absolute;border-radius:50%;filter:blur(80px)}
+.home-hero .r1{width:70vw;height:40vh;left:-12vw;top:8vh;background:linear-gradient(90deg,transparent,rgba(56,189,248,.42),rgba(147,197,253,.38),transparent);animation:hh-rb1 22s ease-in-out infinite}
+.home-hero .r2{width:60vw;height:32vh;right:-12vw;top:30vh;background:linear-gradient(90deg,transparent,rgba(203,213,225,.7),rgba(59,130,246,.3),transparent);animation:hh-rb2 26s ease-in-out infinite}
+.home-hero .r3{width:80vw;height:28vh;left:10vw;bottom:-8vh;background:linear-gradient(90deg,transparent,rgba(226,232,240,.85),rgba(125,211,252,.42),transparent);animation:hh-rb1 30s ease-in-out infinite reverse}
+@keyframes hh-rb1{0%,100%{transform:translate(0,0) rotate(-8deg)}50%{transform:translate(8vw,4vh) rotate(4deg) scaleX(1.15)}}
+@keyframes hh-rb2{0%,100%{transform:translate(0,0) rotate(10deg)}50%{transform:translate(-10vw,-3vh) rotate(-3deg) scaleX(1.2)}}
+
+.home-hero .firefly{position:absolute;bottom:-10px;border-radius:50%;background:#7dd3fc;box-shadow:0 0 10px 2px rgba(56,189,248,.5);
+  animation-name:hh-fly,hh-flick;animation-timing-function:linear,ease-in-out;animation-iteration-count:infinite,infinite}
+@keyframes hh-fly{to{transform:translate(var(--dx),-110vh)}}
+@keyframes hh-flick{50%{opacity:.2}}
+
+.home-hero .dots{position:absolute;inset:0;z-index:-1;pointer-events:none;opacity:.5;
+  background-image:radial-gradient(rgba(15,23,42,.1) 1px,transparent 1px);background-size:22px 22px;
+  -webkit-mask-image:radial-gradient(ellipse at 50% 55%,#000,transparent 70%);mask-image:radial-gradient(ellipse at 50% 55%,#000,transparent 70%)}
+.home-hero .vignette{position:absolute;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(ellipse at center,transparent 50%,rgba(148,163,184,.28) 100%)}
+/* slow silver shimmer sweeping across */
+.home-hero .sheen{position:absolute;inset:0;z-index:-1;pointer-events:none;mix-blend-mode:soft-light;
+  background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.9) 48%,rgba(226,232,240,.6) 52%,transparent 65%);background-size:250% 100%;
+  animation:hh-sheen 9s ease-in-out infinite}
+@keyframes hh-sheen{0%{background-position:120% 0}60%,100%{background-position:-120% 0}}
+
+/* ---------- badge ---------- */
+.home-hero .eyebrow{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;font-size:13px;font-weight:700;color:var(--blue-d);
+  background:rgba(255,255,255,.6);border:1px solid rgba(59,130,246,.25);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);animation:hh-fade .8s both}
+.home-hero .eyebrow i{width:7px;height:7px;border-radius:50%;background:var(--sky);animation:hh-ping 2.2s infinite}
+@keyframes hh-ping{0%{box-shadow:0 0 0 0 rgba(56,189,248,.6)}70%{box-shadow:0 0 0 8px rgba(56,189,248,0)}100%{box-shadow:0 0 0 0 rgba(56,189,248,0)}}
+
+/* ---------- headline ---------- */
+.home-hero h1{margin-top:20px;font-family:Anton,"Bebas Neue",Oswald,Impact,sans-serif;font-weight:400;text-transform:uppercase;line-height:.92;
+  font-size:clamp(60px,10.5vw,176px);color:var(--ink)}
+.home-hero h1 .line{display:block;white-space:nowrap;overflow:hidden;padding:0 .04em}
+.home-hero h1 .in{display:inline-block;animation:hh-rise .9s cubic-bezier(.2,.7,.2,1) both}
+.home-hero h1 .line:nth-child(2) .in{animation-delay:.12s}
+@keyframes hh-rise{from{transform:translateY(105%)}to{transform:none}}
+
+/* rotating blue → sky word */
+.home-hero .rotator{position:relative;display:inline-block;vertical-align:bottom;overflow:hidden;height:1em;line-height:1;transition:width .6s cubic-bezier(.65,0,.25,1)}
+.home-hero .rotator span{position:absolute;left:0;top:0;white-space:nowrap;color:transparent;
+  background:linear-gradient(90deg,var(--blue-d),var(--blue) 45%,var(--sky));-webkit-background-clip:text;background-clip:text;
+  transform:translateY(130%)}
+/* Only entering and leaving words animate; a word that has left drops back below the window instantly. */
+.home-hero .rotator span.show,.home-hero .rotator span.out{transition:transform .7s cubic-bezier(.65,0,.25,1)}
+.home-hero .rotator span.show{transform:none}
+.home-hero .rotator span.out{transform:translateY(-130%)}
+
+.home-hero .lead{margin-top:20px;font-size:19px;color:var(--text);max-width:600px;line-height:1.5;animation:hh-fade .8s .45s both}
+@keyframes hh-fade{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+
+/* ---------- search ---------- */
+.home-hero .search{width:min(1120px,100%);margin-top:32px;display:flex;align-items:center;background:#fff;border-radius:20px;padding:10px;
+  border:1px solid rgba(15,23,42,.06);box-shadow:0 30px 60px -30px rgba(30,58,138,.35),0 2px 6px rgba(15,23,42,.04);
+  transition:box-shadow .3s;animation:hh-fade .8s .6s both}
+.home-hero .search:focus-within{box-shadow:0 0 0 5px rgba(56,189,248,.2),0 30px 60px -30px rgba(30,58,138,.35)}
+.home-hero .q{flex:1;display:flex;align-items:center;gap:14px;padding:0 18px;min-width:0}
+.home-hero .q input{flex:1;min-width:0;border:0;outline:0;font:500 20px "Plus Jakarta Sans",sans-serif;color:var(--ink);background:transparent}
+.home-hero .q input::placeholder{color:var(--muted)}
+.home-hero .loc{display:flex;align-items:center;gap:10px;padding:0 18px;border-left:1px solid #e2e8f0;height:46px}
+.home-hero .loc select{border:0;outline:0;font:500 18px "Plus Jakarta Sans",sans-serif;background:transparent;width:170px;color:var(--ink);cursor:pointer}
+.home-hero .go{width:66px;height:66px;border:0;border-radius:15px;background:linear-gradient(135deg,var(--blue),var(--sky));color:#fff;
+  display:grid;place-items:center;flex:none;box-shadow:0 10px 20px -10px rgba(37,99,235,.8);transition:transform .2s,filter .2s}
+.home-hero .go:hover{transform:translateX(3px);filter:brightness(1.08)}
+
+/* ---------- chips ---------- */
+.home-hero .chips{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin-top:28px;animation:hh-fade .8s .75s both}
+.home-hero .chip{font:700 16px "Plus Jakarta Sans",sans-serif;color:var(--ink);padding:11px 20px;border-radius:12px;
+  background:rgba(255,255,255,.7);border:1px solid rgba(148,163,184,.35);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  box-shadow:0 6px 16px -12px rgba(15,23,42,.35);transition:transform .2s,background .2s,color .2s,border-color .2s}
+.home-hero .chip:hover{transform:translateY(-2px);border-color:rgba(59,130,246,.45)}
+.home-hero .chip.on{background:var(--blue);border-color:var(--blue);color:#fff}
+
+/* ---------- stats ---------- */
+.home-hero .stats{display:flex;gap:28px;margin-top:34px;font-size:14px;color:var(--text);animation:hh-fade .8s .9s both}
+.home-hero .stats b{font-size:18px;color:var(--ink);margin-right:4px}
+.home-hero .stats div{display:flex;align-items:baseline}
+
+/* ---------- responsive ---------- */
+@media (max-width:900px){
+  .home-hero .search{flex-wrap:wrap;gap:8px}
+  .home-hero .q{flex:1 1 100%;padding:12px}
+  .home-hero .q input{font-size:16px}
+  .home-hero .loc{border-left:0;flex:1}
+  .home-hero .loc select{width:100%}
+  .home-hero .go{width:54px;height:54px}
+  .home-hero .chip{font-size:14px;padding:9px 14px}
+  .home-hero .lead{font-size:16px}
+  .home-hero .stats{flex-direction:column;gap:6px;align-items:center}
+}
+@media (prefers-reduced-motion:reduce){
+  .home-hero *,.home-hero *::before,.home-hero *::after{animation:none!important;transition:none!important}
+}

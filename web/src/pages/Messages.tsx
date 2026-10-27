@@ -28,7 +28,7 @@ export default function MessagesPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-0 py-0 sm:px-6 sm:py-8">
-      <Card className="grid h-[calc(100vh-4rem)] overflow-hidden rounded-none border-x-0 sm:h-[calc(100vh-8rem)] sm:rounded-xl sm:border-x md:grid-cols-[20rem_1fr]">
+      <Card className="grid h-[calc(100vh-8rem)] overflow-hidden rounded-none border-x-0 sm:h-[calc(100vh-8rem)] sm:rounded-xl sm:border-x md:grid-cols-[20rem_1fr]">
         <aside className={cx('flex min-h-0 flex-col border-r border-slate-200', id && 'hidden md:flex')}>
           <h1 className="border-b border-slate-200 px-4 py-4 text-lg font-extrabold">Messages</h1>
           <div className="min-h-0 flex-1 overflow-y-auto">

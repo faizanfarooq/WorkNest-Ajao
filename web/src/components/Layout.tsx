@@ -2,7 +2,7 @@ import { Suspense, lazy, useEffect, useLayoutEffect, useRef, useState, type Reac
 import { Link, NavLink, Navigate, Outlet, ScrollRestoration, useLocation, useNavigate } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Bell, Briefcase, Building2, ChevronDown, Home, Inbox, LayoutDashboard, LogOut, MailWarning, Menu, MessageSquare, Plus, Settings, User, Users, X } from 'lucide-react';
+import { Bell, Bookmark, Briefcase, Building2, ChevronDown, Home, Inbox, LayoutDashboard, LogOut, MailWarning, Menu, MessageSquare, Plus, Settings, User, Users, X } from 'lucide-react';
 import type { Role } from '@shared/schemas';
 import { IS_DEMO, api } from '../lib/api';
 import { useAuth } from '../lib/auth';
@@ -170,6 +170,7 @@ function AccountMenu() {
       ? [
           ['/profile', 'Edit profile', <User key="p" className="size-4" />],
           ['/dashboard', 'My applications', <Inbox key="a" className="size-4" />],
+          ['/saved', 'Saved internships', <Bookmark key="b" className="size-4" />],
           ['/settings', 'Settings', <Settings key="s" className="size-4" />],
         ]
       : [
@@ -250,11 +251,13 @@ function SideNav() {
   });
   const newApplicants = postings?.items.reduce((n, i) => n + (i.statusCounts?.applied ?? 0), 0) ?? 0;
 
-  const items: { to: string; label: string; icon: typeof Home; dot?: boolean; count?: number; end?: boolean }[] = isStudent
+  // desktopOnly: the phone tab bar fits five; those links stay reachable from the account menu.
+  const items: { to: string; label: string; icon: typeof Home; dot?: boolean; count?: number; end?: boolean; desktopOnly?: boolean }[] = isStudent
     ? [
         { to: '/home', label: 'Home', icon: Home },
         { to: '/profile', label: 'Profile', icon: User, dot: profileIncomplete },
         { to: '/internships', label: 'Internships', icon: Briefcase },
+        { to: '/saved', label: 'Saved', icon: Bookmark, desktopOnly: true },
         { to: '/dashboard', label: 'Applied', icon: Inbox },
         { to: '/messages', label: 'Messages', icon: MessageSquare, dot: !!unread?.count },
       ]
@@ -267,7 +270,7 @@ function SideNav() {
       ];
 
   const link = (mobile: boolean) =>
-    items.map(({ to, label, icon: Icon, dot, count, end }) => (
+    items.filter((item) => !mobile || !item.desktopOnly).map(({ to, label, icon: Icon, dot, count, end }) => (
       <NavLink
         key={to}
         to={to}

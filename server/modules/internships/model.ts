@@ -49,3 +49,16 @@ const SavedInternshipSchema = new Schema({
 SavedInternshipSchema.index({ userId: 1, internshipId: 1 }, { unique: true });
 
 export const SavedInternshipModel = mongoose.model('SavedInternship', SavedInternshipSchema);
+
+/** A student's recent keyword searches. `qKey` is the lower-cased keyword, so "React" and "react" are one entry. */
+const RecentSearchSchema = new Schema({
+  userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  q: { type: String, required: true },
+  qKey: { type: String, required: true },
+  city: { type: String, default: '' },
+  usedAt: { type: Date, default: Date.now },
+});
+RecentSearchSchema.index({ userId: 1, qKey: 1, city: 1 }, { unique: true });
+RecentSearchSchema.index({ userId: 1, usedAt: -1 });
+
+export const RecentSearchModel = mongoose.model('RecentSearch', RecentSearchSchema);

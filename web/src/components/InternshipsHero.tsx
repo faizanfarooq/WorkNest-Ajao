@@ -1,7 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
+import { History, X } from 'lucide-react';
 import { CITIES } from '@shared/schemas';
 import { MODE_LABEL } from '../lib/format';
-import type { Internship } from '../lib/types';
+import type { Internship, RecentSearch } from '../lib/types';
 import { useOverlayHeader } from './Layout';
 import { cx } from './ui';
 import s from './InternshipsHero.module.css';
@@ -81,6 +82,10 @@ export function InternshipsHero({
   chips,
   stats,
   latest,
+  recent = [],
+  onRecent,
+  onRemoveRecent,
+  onClearRecent,
 }: {
   keywords: string;
   city: string;
@@ -91,6 +96,11 @@ export function InternshipsHero({
   stats: { internships?: number; companies?: number };
   /** Newest internships, shown on the phone mockup. */
   latest: Internship[];
+  /** The signed-in student's recent searches; the row is hidden when empty. */
+  recent?: RecentSearch[];
+  onRecent?: (r: RecentSearch) => void;
+  onRemoveRecent?: (r: RecentSearch) => void;
+  onClearRecent?: () => void;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const h1 = useRef<HTMLHeadingElement>(null);
@@ -205,6 +215,26 @@ export function InternshipsHero({
           </svg>
         </button>
       </form>
+
+      {recent.length > 0 && (
+        <div className={s.recent} role="group" aria-label="Recent searches">
+          <span className={s.recentLabel}>
+            <History className="size-4" aria-hidden /> Recent
+          </span>
+          {recent.map((r) => (
+            <span key={r._id} className={s.recentChip}>
+              <button type="button" className={s.recentRun} onClick={() => onRecent?.(r)} title={`Search again: ${r.q}${r.city ? ` in ${r.city}` : ''}`}>
+                {r.q}
+                {r.city && <span className={s.recentCity}> · {r.city}</span>}
+              </button>
+              <button type="button" className={s.recentRemove} onClick={() => onRemoveRecent?.(r)} aria-label={`Remove "${r.q}" from recent searches`}>
+                <X className="size-3.5" aria-hidden />
+              </button>
+            </span>
+          ))}
+          <button type="button" className={s.recentClear} onClick={onClearRecent}>Clear</button>
+        </div>
+      )}
 
       <div className={s.chips}>
         {chips.map((c) => (

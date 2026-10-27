@@ -35,8 +35,9 @@ export function InternshipRow({ internship: i }: { internship: Internship }) {
   ];
 
   return (
+    <div className="relative">
     <Link to={`/internships/${i._id}`} className="group block rounded-2xl border border-slate-300 bg-white p-6 shadow-sm transition-shadow hover:shadow-md sm:px-10 sm:py-8">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 pr-10">
         <Avatar name={company?.name ?? '?'} src={company?.logoUrl} square />
         <div className="min-w-0">
           <h3 className="text-lg font-bold leading-snug text-ink group-hover:underline">{i.title}</h3>
@@ -64,6 +65,8 @@ export function InternshipRow({ internship: i }: { internship: Internship }) {
         </span>
       </div>
     </Link>
+    <BookmarkButton internship={i} className="absolute right-4 top-4 sm:right-6 sm:top-6" />
+    </div>
   );
 }
 
@@ -74,14 +77,11 @@ export function InternshipCard({ internship: i, active, onSelect }: { internship
     <>
       <div className="flex gap-3">
         <Avatar name={company?.name ?? '?'} src={company?.logoUrl} square />
-        <div className="min-w-0 flex-1">
+        {/* pr-8 leaves room for the bookmark in the corner. */}
+        <div className="min-w-0 flex-1 pr-8">
           <div className="flex items-start justify-between gap-2">
             <h3 className="font-bold leading-snug text-ink group-hover:text-brand-800">{i.title}</h3>
-            {i.applicationId ? (
-              <Badge tone="green" className="shrink-0">Applied</Badge>
-            ) : i.saved ? (
-              <BookmarkCheck className="size-4 shrink-0 text-brand-700" aria-label="Saved" />
-            ) : null}
+            {i.applicationId && <Badge tone="green" className="shrink-0">Applied</Badge>}
           </div>
           <p className="mt-0.5 text-sm text-slate-600">{company && <CompanyName name={company.name} verified={company.verified} />}</p>
         </div>
@@ -116,48 +116,98 @@ export function InternshipCard({ internship: i, active, onSelect }: { internship
     active ? 'border-brand-600 ring-2 ring-brand-600/20' : 'border-slate-200 hover:border-slate-300 hover:shadow-sm',
   );
 
-  return onSelect ? (
-    <button type="button" onClick={onSelect} className={cls} aria-pressed={active}>
-      {content}
-    </button>
-  ) : (
-    <Link to={`/internships/${i._id}`} className={cls}>
-      {content}
-    </Link>
+  return (
+    <div className="relative">
+      {onSelect ? (
+        <button type="button" onClick={onSelect} className={cls} aria-pressed={active}>
+          {content}
+        </button>
+      ) : (
+        <Link to={`/internships/${i._id}`} className={cls}>
+          {content}
+        </Link>
+      )}
+      <BookmarkButton internship={i} className="absolute right-2 top-2" />
+    </div>
   );
 }
 
-export function SaveButton({ internship }: { internship: Internship }) {
+/**
+ * Save/unsave for the bookmark icon and the Save button. Visitors who aren't signed in are sent to
+ * log in; employers get `hidden` because only students can save.
+ */
+function useSaveToggle(internship: Internship) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const qc = useQueryClient();
-  const [saved, setSaved] = useState(!!internship.saved);
+  // The optimistic value, kept until the refetched lists agree so the icon doesn't flicker back.
+  const [pending, setPending] = useState<boolean>();
+  const saved = pending ?? !!internship.saved;
 
-  const toggle = useMutation({
-    mutationFn: (next: boolean) => api(`/internships/${internship._id}/save`, { method: next ? 'POST' : 'DELETE' }),
-    onMutate: (next) => setSaved(next),
-    onError: (err, next) => {
-      setSaved(!next);
+  const refresh = () =>
+    Promise.all([
+      qc.invalidateQueries({ queryKey: ['internships'] }),
+      qc.invalidateQueries({ queryKey: ['internship', internship._id] }),
+      qc.invalidateQueries({ queryKey: ['saved'] }),
+    ]);
+  const request = (next: boolean) => api(`/internships/${internship._id}/save`, { method: next ? 'POST' : 'DELETE' });
+
+  const mutation = useMutation({
+    mutationFn: request,
+    onMutate: (next) => setPending(next),
+    onError: (err) => {
+      setPending(undefined);
       toastError(err);
     },
     onSuccess: (_d, next) => {
-      toast.success(next ? 'Saved' : 'Removed from saved');
-      qc.invalidateQueries({ queryKey: ['internships'] });
-      qc.invalidateQueries({ queryKey: ['saved'] });
+      if (next) {
+        toast.success('Saved', { action: { label: 'View saved', onClick: () => navigate('/saved') } });
+      } else {
+        // Undo can run after this card has gone (e.g. on the Saved page), so it doesn't use the mutation.
+        toast.success('Removed from saved', { action: { label: 'Undo', onClick: () => request(true).then(refresh, toastError) } });
+      }
     },
+    onSettled: () => refresh().finally(() => setPending(undefined)),
   });
 
-  if (user && user.role !== 'student') return null;
+  const toggle = () => {
+    if (!user) return navigate(`/login?next=${encodeURIComponent(location.pathname + location.search)}`);
+    if (!mutation.isPending) mutation.mutate(!saved);
+  };
+  return { saved, toggle, hidden: !!user && user.role !== 'student' };
+}
+
+export function SaveButton({ internship }: { internship: Internship }) {
+  const { saved, toggle, hidden } = useSaveToggle(internship);
+  if (hidden) return null;
   return (
-    <Button
-      variant="secondary"
-      onClick={() => (user ? toggle.mutate(!saved) : navigate(`/login?next=${encodeURIComponent(location.pathname + location.search)}`))}
-      aria-pressed={saved}
-    >
+    <Button variant="secondary" onClick={toggle} aria-pressed={saved}>
       {saved ? <BookmarkCheck className="size-4 text-brand-700" /> : <Bookmark className="size-4" />}
       {saved ? 'Saved' : 'Save'}
     </Button>
+  );
+}
+
+/** Bookmark icon for the corner of a card. Rendered beside the card's link, not inside it. */
+export function BookmarkButton({ internship, className }: { internship: Internship; className?: string }) {
+  const { saved, toggle, hidden } = useSaveToggle(internship);
+  if (hidden) return null;
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      aria-pressed={saved}
+      aria-label={saved ? `Remove ${internship.title} from saved` : `Save ${internship.title}`}
+      title={saved ? 'Remove from saved' : 'Save internship'}
+      className={cx(
+        'rounded-full p-2 transition-colors hover:bg-brand-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600',
+        saved ? 'text-brand-700' : 'text-slate-400 hover:text-brand-700',
+        className,
+      )}
+    >
+      <Bookmark className={cx('size-5', saved && 'fill-current')} strokeWidth={2} aria-hidden />
+    </button>
   );
 }
 
@@ -332,7 +382,7 @@ export function InternshipDetail({ internship: i, compact }: { internship: Inter
         ) : (
           <>
             <ApplyAction internship={i} />
-            <SaveButton key={`${i._id}-${i.saved}`} internship={i} />
+            <SaveButton key={i._id} internship={i} />
           </>
         )}
         {compact && (

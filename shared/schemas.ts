@@ -196,6 +196,15 @@ export const InternshipQuerySchema = z.object({
 });
 export type InternshipQuery = z.infer<typeof InternshipQuerySchema>;
 
+/** How many recent searches each student keeps; older ones drop off. */
+export const MAX_RECENT_SEARCHES = 8;
+
+export const RecentSearchSchema = z.object({
+  q: z.string().trim().min(1, 'Enter a keyword').max(100),
+  city: z.string().trim().max(60).default(''),
+});
+export type RecentSearchInput = z.infer<typeof RecentSearchSchema>;
+
 // ---------- Applications ----------
 
 export const ApplySchema = z.object({

@@ -14,7 +14,9 @@ import {
   InternshipSchema,
   InternshipStatusSchema,
   LoginSchema,
+  MAX_RECENT_SEARCHES,
   MessageSchema,
+  RecentSearchSchema,
   RegisterSchema,
   StudentProfileSchema,
   type ApplicationStatus,
@@ -45,6 +47,8 @@ interface DB {
   internships: Row[];
   applications: Row[];
   saved: Row[];
+  /** Added after the first demo release, so older saved copies may not have it. */
+  recentSearches?: Row[];
   conversations: Row[];
   messages: Row[];
   notifications: Row[];
@@ -130,6 +134,7 @@ async function seed(): Promise<DB> {
     internships: [],
     applications: [],
     saved: [],
+    recentSearches: [],
     conversations: [],
     messages: [],
     notifications: [],
@@ -644,6 +649,37 @@ route('POST', '/internships/:id/save', ({ params }) => {
 route('DELETE', '/internships/:id/save', ({ params }) => {
   const { user } = requireRole('student');
   db!.saved = db!.saved.filter((s) => !(s.userId === user._id && s.internshipId === params.id));
+});
+
+const recentSearches = (userId: string) =>
+  (db!.recentSearches ??= [])
+    .filter((r) => r.userId === userId)
+    .sort((a, b) => b.usedAt.localeCompare(a.usedAt))
+    .slice(0, MAX_RECENT_SEARCHES)
+    .map(({ _id, q, city, usedAt }) => ({ _id, q, city, usedAt }));
+
+route('GET', '/internships/recent-searches', () => ({ items: recentSearches(requireRole('student').user._id) }));
+
+route('POST', '/internships/recent-searches', ({ body }) => {
+  const { user } = requireRole('student');
+  const { q, city } = parse(RecentSearchSchema, body);
+  const list = (db!.recentSearches ??= []);
+  const existing = list.find((r) => r.userId === user._id && r.qKey === q.toLowerCase() && r.city === city);
+  if (existing) Object.assign(existing, { q, usedAt: now() });
+  else list.push({ _id: newId(), userId: user._id, q, qKey: q.toLowerCase(), city, usedAt: now() });
+  const keep = new Set(recentSearches(user._id).map((r) => r._id));
+  db!.recentSearches = list.filter((r) => r.userId !== user._id || keep.has(r._id));
+  return { items: recentSearches(user._id) };
+});
+
+route('DELETE', '/internships/recent-searches', () => {
+  const { user } = requireRole('student');
+  db!.recentSearches = (db!.recentSearches ?? []).filter((r) => r.userId !== user._id);
+});
+
+route('DELETE', '/internships/recent-searches/:id', ({ params }) => {
+  const { user } = requireRole('student');
+  db!.recentSearches = (db!.recentSearches ?? []).filter((r) => !(r.userId === user._id && r._id === params.id));
 });
 
 route('GET', '/internships/mine', () => {

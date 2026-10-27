@@ -1,10 +1,10 @@
 import { useRef, useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router';
+import { Link, Navigate, useParams, useSearchParams } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
-import { ArrowLeft, ArrowRight, Bookmark, Briefcase, Check, FileText, Link2, MapPin, MessageSquare, ShieldCheck, Sparkles, Trash2, Upload, UserRound } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Briefcase, Check, FileText, Link2, MapPin, MessageSquare, ShieldCheck, Sparkles, Trash2, Upload, UserRound } from 'lucide-react';
 import { APPLICATION_STATUSES, StudentProfileSchema, type ApplicationStatus, type StudentProfileInput } from '@shared/schemas';
 import { GreetingHero } from '../components/GreetingHero';
 import { InternshipCard } from '../components/internships';
@@ -174,11 +174,13 @@ export function StudentHome() {
 
 export function StudentDashboard() {
   const [params, setParams] = useSearchParams();
-  const tab = params.get('tab') === 'saved' ? 'saved' : params.get('tab') === 'closed' ? 'closed' : 'active';
+  const tab = params.get('tab') === 'closed' ? 'closed' : 'active';
 
   const apps = useQuery({ queryKey: ['my-applications'], queryFn: () => api<{ items: Application[] }>('/applications/mine') });
-  const saved = useQuery({ queryKey: ['saved'], queryFn: () => api<{ items: Internship[] }>('/internships/saved') });
   const profile = useQuery({ queryKey: ['profile'], queryFn: fetchProfile });
+
+  // Saved internships used to be a tab here; they have their own page now.
+  if (params.get('tab') === 'saved') return <Navigate to="/saved" replace />;
 
   const items = apps.data?.items ?? [];
   const active = items.filter((a) => ACTIVE.includes(a.status));
@@ -199,7 +201,6 @@ export function StudentDashboard() {
   const tabs = [
     ['active', `Active (${active.length})`],
     ['closed', `Closed (${closed.length})`],
-    ['saved', `Saved (${saved.data?.items.length ?? 0})`],
   ] as const;
 
   return (
@@ -246,15 +247,7 @@ export function StudentDashboard() {
         ))}
       </div>
 
-      {tab === 'saved' ? (
-        saved.isLoading ? (
-          <PageSpinner />
-        ) : saved.data?.items.length ? (
-          <div className="grid gap-3 sm:grid-cols-2">{saved.data.items.map((i) => <InternshipCard key={i._id} internship={i} />)}</div>
-        ) : (
-          <Card><EmptyState icon={<Bookmark className="size-6" />} title="Nothing saved yet" body="Save internships while you browse and come back to them here." /></Card>
-        )
-      ) : apps.isLoading ? (
+      {apps.isLoading ? (
         <PageSpinner />
       ) : apps.isError ? (
         <ErrorState error={apps.error} retry={() => apps.refetch()} />

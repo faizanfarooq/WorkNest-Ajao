@@ -15,6 +15,7 @@ import Home from './pages/Home';
 import InternshipsPage from './pages/Internships';
 import MessagesPage from './pages/Messages';
 import { CompaniesPage, CompanyPage, EmployersPage, InternshipPage, NotFound } from './pages/Public';
+import SavedPage from './pages/Saved';
 import SettingsPage from './pages/Settings';
 import { ApplicationPage, ProfilePage, StudentDashboard, StudentHome } from './pages/student';
 
@@ -75,6 +76,7 @@ const router = createBrowserRouter([
       { path: '/settings', element: <RequireAuth><SettingsPage /></RequireAuth> },
 
       { path: '/profile', element: <RequireAuth role="student"><ProfilePage /></RequireAuth> },
+      { path: '/saved', element: <RequireAuth role="student"><SavedPage /></RequireAuth> },
       { path: '/applications/:id', element: <RequireAuth role="student"><ApplicationPage /></RequireAuth> },
 
       { path: '/employer/applicants', element: <RequireAuth role="employer"><ApplicantsBoardPage /></RequireAuth> },

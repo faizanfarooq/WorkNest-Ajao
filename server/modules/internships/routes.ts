@@ -4,14 +4,17 @@ import {
   InternshipQuerySchema,
   InternshipSchema,
   InternshipStatusSchema,
+  MAX_RECENT_SEARCHES,
+  RecentSearchSchema,
   type InternshipInput,
   type InternshipQuery,
+  type RecentSearchInput,
 } from '../../../shared/schemas.ts';
 import { assertObjectId, conflict, escapeRegex, notFound, validate } from '../../lib/http.ts';
 import { assertEmailVerified, auth, optionalAuth, requireAuth, requireRole } from '../../middleware/auth.ts';
 import { ApplicationModel } from '../applications/model.ts';
 import { CompanyModel } from '../companies/model.ts';
-import { InternshipModel, SavedInternshipModel } from './model.ts';
+import { InternshipModel, RecentSearchModel, SavedInternshipModel } from './model.ts';
 import { monthlyPkr, openFilter, ownedInternship, serializeInternship } from './service.ts';
 
 const router = Router();
@@ -129,6 +132,44 @@ router.post('/:id/save', requireAuth, requireRole('student'), async (req, res) =
 
 router.delete('/:id/save', requireAuth, requireRole('student'), async (req, res) => {
   await SavedInternshipModel.deleteOne({ userId: auth(req).userId, internshipId: String(req.params.id) });
+  res.status(204).end();
+});
+
+// ---------- Student: recent searches ----------
+// Registered before the employer's DELETE /:id so "recent-searches" isn't read as an internship id.
+
+const recentSearches = async (userId: string) => {
+  const rows = await RecentSearchModel.find({ userId }).sort({ usedAt: -1 }).limit(MAX_RECENT_SEARCHES).lean();
+  return rows.map((r) => ({ _id: String(r._id), q: r.q, city: r.city ?? '', usedAt: r.usedAt }));
+};
+
+router.get('/recent-searches', requireAuth, requireRole('student'), async (req, res) => {
+  res.json({ items: await recentSearches(auth(req).userId) });
+});
+
+/** Records a search, or moves a repeated one back to the top. Returns the updated list. */
+router.post('/recent-searches', requireAuth, requireRole('student'), validate(RecentSearchSchema), async (req, res) => {
+  const { q, city } = req.body as RecentSearchInput;
+  const userId = auth(req).userId;
+  await RecentSearchModel.updateOne(
+    { userId, qKey: q.toLowerCase(), city },
+    { $set: { q, usedAt: new Date() } },
+    { upsert: true },
+  );
+  const stale = await RecentSearchModel.find({ userId }).sort({ usedAt: -1 }).skip(MAX_RECENT_SEARCHES).select('_id').lean();
+  if (stale.length) await RecentSearchModel.deleteMany({ _id: { $in: stale.map((s) => s._id) } });
+  res.status(201).json({ items: await recentSearches(userId) });
+});
+
+router.delete('/recent-searches', requireAuth, requireRole('student'), async (req, res) => {
+  await RecentSearchModel.deleteMany({ userId: auth(req).userId });
+  res.status(204).end();
+});
+
+router.delete('/recent-searches/:id', requireAuth, requireRole('student'), async (req, res) => {
+  const id = String(req.params.id);
+  assertObjectId(id, 'Search');
+  await RecentSearchModel.deleteOne({ _id: id, userId: auth(req).userId });
   res.status(204).end();
 });
 

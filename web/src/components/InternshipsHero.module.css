@@ -220,6 +220,28 @@
 .chip:hover { background: rgba(255, 255, 255, 0.18); transform: translateY(-2px); }
 .chip.on { background: var(--lime); color: var(--ink); border-color: var(--lime); }
 
+/* Recent searches (signed-in students) */
+.recent { position: relative; z-index: 3; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; width: min(1000px, 100%); margin-top: 18px; animation: fadeUp 0.5s both; }
+.recentLabel { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; opacity: 0.85; }
+.recentChip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(8px);
+  transition: background 0.2s;
+}
+.recentChip:hover { background: rgba(255, 255, 255, 0.24); }
+.recentRun { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 7px 4px 7px 14px; font-size: 14px; font-weight: 600; color: #fff; background: none; border: 0; cursor: pointer; }
+.recentCity { font-weight: 500; opacity: 0.75; }
+.recentRemove { display: grid; place-items: center; width: 28px; height: 28px; margin-right: 3px; border-radius: 999px; color: #fff; opacity: 0.7; background: none; border: 0; cursor: pointer; }
+.recentRemove:hover { opacity: 1; background: rgba(255, 255, 255, 0.18); }
+.recentClear { font-size: 13px; font-weight: 600; color: #fff; opacity: 0.75; text-decoration: underline; text-underline-offset: 3px; background: none; border: 0; cursor: pointer; padding: 6px; }
+.recentClear:hover { opacity: 1; }
+.recent button:focus-visible { outline: 2px solid var(--lime); outline-offset: 2px; }
+
 /* Floating notification cards */
 .toast {
   position: absolute;
@@ -269,6 +291,7 @@
   .loc { border-left: 0; flex: 1; padding: 0 12px; }
   .go { width: 52px; height: 52px; }
   .chip { font-size: 13px; padding: 9px 14px; }
+  .recentRun { font-size: 13px; }
   .stats { flex-direction: column; gap: 6px; align-items: center; }
 }
 

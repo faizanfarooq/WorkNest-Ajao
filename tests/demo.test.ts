@@ -127,6 +127,24 @@ describe('demo backend', () => {
     expect(found.items[0].company.name).toBe('New Co');
   });
 
+  it('remembers recent searches for students', async () => {
+    await expectStatus(call('GET', '/internships/recent-searches'), 401);
+    await login('student@worknest.test');
+    await call('POST', '/internships/recent-searches', { q: 'react', city: 'Lahore' });
+    await call('POST', '/internships/recent-searches', { q: 'design' });
+    const { items } = await call('POST', '/internships/recent-searches', { q: 'REACT', city: 'Lahore' });
+    expect(items.map((r: any) => r.q)).toEqual(['REACT', 'design']);
+    await expectStatus(call('POST', '/internships/recent-searches', { q: '' }), 400);
+
+    await call('DELETE', `/internships/recent-searches/${items[1]._id}`);
+    expect((await call('GET', '/internships/recent-searches')).items).toHaveLength(1);
+    await call('DELETE', '/internships/recent-searches');
+    expect((await call('GET', '/internships/recent-searches')).items).toEqual([]);
+
+    await login('employer@worknest.test');
+    await expectStatus(call('GET', '/internships/recent-searches'), 403);
+  });
+
   it('persists across reloads', async () => {
     await login('student@worknest.test');
     expect(store.get('worknest-demo')).toContain('Ayesha');

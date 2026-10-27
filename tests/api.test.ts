@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import request from 'supertest';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import type { Express } from 'express';
+import { MAX_RECENT_SEARCHES } from '../shared/schemas.ts';
 
 let mongo: MongoMemoryServer;
 let app: Express;
@@ -356,6 +357,45 @@ describe('internships', () => {
     const detail = await request(app).get(`/api/internships/${internship._id}`).set('Authorization', `Bearer ${s.token}`);
     expect(detail.body.internship.saved).toBe(true);
     await request(app).delete(`/api/internships/${internship._id}/save`).set('Authorization', `Bearer ${s.token}`).expect(204);
+    const after = await request(app).get('/api/internships/saved').set('Authorization', `Bearer ${s.token}`);
+    expect(after.body.items).toHaveLength(0);
+    // Search results carry the flag that the card's bookmark icon reads.
+    const list = await request(app).get('/api/internships').set('Authorization', `Bearer ${s.token}`);
+    expect(list.body.items.find((i: any) => i._id === internship._id).saved).toBe(false);
+  });
+
+  it('keeps recent searches per student, newest first, without repeats', async () => {
+    const s = await student();
+    const other = await student('other@student.test');
+    const post = (token: string, body: object) =>
+      request(app).post('/api/internships/recent-searches').set('Authorization', `Bearer ${token}`).send(body);
+
+    await post(s.token, { q: 'react', city: 'Lahore' }).expect(201);
+    await post(s.token, { q: 'design' }).expect(201);
+    const again = await post(s.token, { q: 'React', city: 'Lahore' }).expect(201);
+    expect(again.body.items.map((r: any) => [r.q, r.city])).toEqual([['React', 'Lahore'], ['design', '']]);
+    await post(s.token, { q: '   ' }).expect(400);
+
+    for (let n = 0; n < 10; n++) await post(s.token, { q: `kw ${n}` });
+    const list = await request(app).get('/api/internships/recent-searches').set('Authorization', `Bearer ${s.token}`);
+    expect(list.body.items).toHaveLength(MAX_RECENT_SEARCHES);
+    expect(list.body.items[0].q).toBe('kw 9');
+
+    // Another student can't see or delete them.
+    const mine = await request(app).get('/api/internships/recent-searches').set('Authorization', `Bearer ${other.token}`);
+    expect(mine.body.items).toEqual([]);
+    const id = list.body.items[0]._id;
+    await request(app).delete(`/api/internships/recent-searches/${id}`).set('Authorization', `Bearer ${other.token}`).expect(204);
+    await request(app).delete(`/api/internships/recent-searches/${id}`).set('Authorization', `Bearer ${s.token}`).expect(204);
+    const left = await request(app).get('/api/internships/recent-searches').set('Authorization', `Bearer ${s.token}`);
+    expect(left.body.items.map((r: any) => r._id)).not.toContain(id);
+
+    await request(app).delete('/api/internships/recent-searches').set('Authorization', `Bearer ${s.token}`).expect(204);
+    const cleared = await request(app).get('/api/internships/recent-searches').set('Authorization', `Bearer ${s.token}`);
+    expect(cleared.body.items).toEqual([]);
+
+    const e = await employer();
+    await post(e.token, { q: 'react' }).expect(403);
   });
 });
 

@@ -1,13 +1,16 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router';
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { PageMetadata } from '../components/PageMetadata';
+import { BackToTop } from '../components/BackToTop';
 import { ChevronLeft, ChevronRight, SearchX, X } from 'lucide-react';
 import { InternshipCard, InternshipDetail } from '../components/internships';
 import { InternshipsHero, type HeroChip } from '../components/InternshipsHero';
 import { Button, Card, EmptyState, ErrorState, Spinner, cx } from '../components/ui';
 import { api } from '../lib/api';
-import type { Company, Internship, Paged } from '../lib/types';
+import { useAuth } from '../lib/auth';
+import { toastError } from '../lib/forms';
+import type { Company, Internship, Paged, RecentSearch } from '../lib/types';
 
 function useMediaQuery(query: string) {
   const [matches, setMatches] = useState(() => window.matchMedia(query).matches);
@@ -82,6 +85,32 @@ export default function InternshipsPage() {
   });
   const companies = useQuery({ queryKey: ['companies'], queryFn: () => api<{ companies: Company[] }>('/companies') });
 
+  // Students' recent keyword searches, kept on their account so they follow them across devices.
+  const { user } = useAuth();
+  const isStudent = user?.role === 'student';
+  const qc = useQueryClient();
+  const recent = useQuery({
+    queryKey: ['recent-searches'],
+    queryFn: () => api<{ items: RecentSearch[] }>('/internships/recent-searches'),
+    enabled: isStudent,
+  });
+  const setRecent = (items: RecentSearch[]) => qc.setQueryData(['recent-searches'], { items });
+  const remember = (q: string, city: string) => {
+    if (!isStudent || !q) return;
+    // Best effort: a failed save shouldn't get in the way of the search itself.
+    api<{ items: RecentSearch[] }>('/internships/recent-searches', { method: 'POST', body: { q, city } })
+      .then((r) => setRecent(r.items))
+      .catch(() => {});
+  };
+  const forget = (path: string, next: RecentSearch[]) => {
+    const before = recent.data?.items ?? [];
+    setRecent(next);
+    api(path, { method: 'DELETE' }).catch((err) => {
+      setRecent(before);
+      toastError(err);
+    });
+  };
+
   const results = useRef<HTMLDivElement>(null);
   const showResults = () =>
     results.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
@@ -89,6 +118,15 @@ export default function InternshipsPage() {
   const onSearch = (e: FormEvent) => {
     e.preventDefault();
     update({ q: keywords.trim() || null, city: city || null });
+    remember(keywords.trim(), city);
+    showResults();
+  };
+
+  const runRecent = (r: RecentSearch) => {
+    setKeywords(r.q);
+    setCity(r.city);
+    update({ q: r.q, city: r.city || null });
+    remember(r.q, r.city);
     showResults();
   };
 
@@ -124,6 +162,10 @@ export default function InternshipsPage() {
       chips={chips}
       stats={{ internships: overview.data?.total, companies: companies.data?.companies.length }}
       latest={overview.data?.items ?? []}
+      recent={recent.data?.items.slice(0, 5)}
+      onRecent={runRecent}
+      onRemoveRecent={(r) => forget(`/internships/recent-searches/${r._id}`, (recent.data?.items ?? []).filter((x) => x._id !== r._id))}
+      onClearRecent={() => forget('/internships/recent-searches', [])}
     />
 
     <div ref={results} className="mx-auto max-w-7xl scroll-mt-20 px-4 py-6 sm:px-6">
@@ -211,6 +253,7 @@ export default function InternshipsPage() {
         )}
       </div>
     </div>
+    <BackToTop />
     </>
   );
 }

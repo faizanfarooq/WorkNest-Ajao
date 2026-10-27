@@ -12,6 +12,14 @@ export interface SessionUser {
   company: { id: string; name: string; slug: string; logoUrl?: string } | null;
 }
 
+/** A keyword search a student ran, offered back to them on the Find internships page. */
+export interface RecentSearch {
+  _id: string;
+  q: string;
+  city: string;
+  usedAt: string;
+}
+
 export interface CompanySummary {
   _id: string;
   name: string;
